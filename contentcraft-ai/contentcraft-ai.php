@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: ContentCraft AI
- * Description: AI-powered content enhancement and generation for WordPress using Gemini API
+ * Description: Supercharge your WordPress editor with AI-powered content creation and enhancement using the Gemini API.
  * Version: 1.1
  * Author: Sonu Gupta
  * Text Domain: contentcraft-ai

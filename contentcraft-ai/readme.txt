@@ -7,7 +7,7 @@ Stable tag: 1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-AI-powered content enhancement and generation for WordPress using the Gemini API.
+Supercharge your WordPress editor with AI-powered content creation and enhancement using the Gemini API.
 
 == Description ==
 
