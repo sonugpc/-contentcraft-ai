@@ -1,0 +1,143 @@
+/**
+ * Frontend Editor Styles for ContentCraft AI
+ */
+
+/* Frontend modal styles (lighter version) */
+.contentcraft-frontend-modal {
+    display: none;
+    position: fixed;
+    z-index: 999999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.contentcraft-frontend-modal-content {
+    background-color: #ffffff;
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Frontend editor integration */
+.contentcraft-frontend-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    margin: 5px;
+}
+
+.contentcraft-frontend-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    color: white;
+    text-decoration: none;
+}
+
+/* Integration with popular page builders */
+
+/* Elementor Integration */
+.elementor-editor-active .contentcraft-editor-button {
+    background: #93003c;
+    border-color: #93003c;
+}
+
+.elementor-editor-active .contentcraft-editor-button:hover {
+    background: #7a0033;
+    border-color: #7a0033;
+}
+
+/* Beaver Builder Integration */
+.fl-builder-edit .contentcraft-editor-button {
+    background: #3b7be8;
+    border-color: #3b7be8;
+}
+
+.fl-builder-edit .contentcraft-editor-button:hover {
+    background: #2e6bc4;
+    border-color: #2e6bc4;
+}
+
+/* Divi Integration */
+.et_pb_module .contentcraft-editor-button {
+    background: #6c2eb9;
+    border-color: #6c2eb9;
+}
+
+.et_pb_module .contentcraft-editor-button:hover {
+    background: #5a259a;
+    border-color: #5a259a;
+}
+
+/* Visual Composer Integration */
+.vc_ui-panel .contentcraft-editor-button {
+    background: #00c1cf;
+    border-color: #00c1cf;
+}
+
+.vc_ui-panel .contentcraft-editor-button:hover {
+    background: #00a3b0;
+    border-color: #00a3b0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .contentcraft-frontend-modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    
+    .contentcraft-frontend-button {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+}
+
+/* Accessibility */
+.contentcraft-frontend-button:focus {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* Loading states */
+.contentcraft-frontend-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.contentcraft-frontend-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #ffffff;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: contentcraft-spin 1s linear infinite;
+}
+
+@keyframes contentcraft-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
