@@ -128,6 +128,7 @@ class ContentCraft_AI_API_Handler {
                 )
             ),
             'generationConfig' => array(
+                'response_mime_type' => 'application/json',
                 'maxOutputTokens' => $this->get_settings()->get_option('max_tokens', 2000),
                 'temperature' => $this->get_settings()->get_option('temperature', 0.7)
             )
@@ -188,13 +189,27 @@ class ContentCraft_AI_API_Handler {
         
         $content = $candidate['content']['parts'][0]['text'];
         
-        // Sanitize content
-        $sanitized_content = $this->sanitize_content($content);
+        // Decode the JSON string
+        $structured_data = json_decode($content, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->log_error('Failed to parse structured JSON from API response: ' . json_last_error_msg());
+            return new WP_Error('json_error', __('Failed to parse structured JSON from API response.', 'contentcraft-ai'));
+        }
+
+        // Sanitize the fields
+        $sanitized_data = [
+            'enhanced_title' => isset($structured_data['enhanced_title']) ? sanitize_text_field($structured_data['enhanced_title']) : '',
+            'enhanced_content' => isset($structured_data['enhanced_content']) ? wp_kses_post($structured_data['enhanced_content']) : '',
+            'suggested_tags' => isset($structured_data['suggested_tags']) ? array_map('sanitize_text_field', $structured_data['suggested_tags']) : [],
+            'meta_description' => isset($structured_data['meta_description']) ? sanitize_text_field($structured_data['meta_description']) : '',
+            'focus_keyword' => isset($structured_data['focus_keyword']) ? sanitize_text_field($structured_data['focus_keyword']) : '',
+        ];
         
         // Log successful request
         $this->log_success('Content generated successfully');
         
-        return $sanitized_content;
+        return $sanitized_data;
     }
     
     /**

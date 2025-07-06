@@ -387,18 +387,24 @@
             });
         },
         
-        showEnhancedContent: function(content) {
-            this.lastEnhancedContent = content; // Store for later retrieval
-            var preview = this.createContentPreview(content, 'Enhanced');
+        showEnhancedContent: function(data) {
+            this.lastEnhancedContent = data.enhanced_content; // Store for later retrieval
+            var preview = this.createContentPreview(data.enhanced_content, 'Enhanced');
             $('#enhanced-content').html(preview);
             $('#enhanced-content-preview').show();
+
+            // Update other fields
+            this.updateEditorFields(data);
         },
         
-        showGeneratedContent: function(content) {
-            this.lastGeneratedContent = content; // Store for later retrieval
-            var preview = this.createContentPreview(content, 'Generated');
+        showGeneratedContent: function(data) {
+            this.lastGeneratedContent = data.enhanced_content; // Store for later retrieval
+            var preview = this.createContentPreview(data.enhanced_content, 'Generated');
             $('#generated-content').html(preview);
             $('#generated-content-preview').show();
+
+            // Update other fields
+            this.updateEditorFields(data);
         },
         
         createContentPreview: function(content, type) {
@@ -457,6 +463,39 @@
             console.log('ContentCraft AI: Accepting generated content (length: ' + content.length + ')');
             this.setContent(content);
             this.close();
+        },
+
+        updateEditorFields: function(data) {
+            // Update title
+            if (data.enhanced_title) {
+                if (this.currentEditor === 'classic') {
+                    $('#title').val(data.enhanced_title);
+                } else if (this.currentEditor === 'gutenberg') {
+                    wp.data.dispatch('core/editor').editPost({ title: data.enhanced_title });
+                }
+            }
+
+            // Update tags
+            if (data.suggested_tags && data.suggested_tags.length > 0) {
+                var tags = data.suggested_tags.join(',');
+                if (this.currentEditor === 'classic') {
+                    $('#new-tag-post_tag').val(tags);
+                } else if (this.currentEditor === 'gutenberg') {
+                    // This is more complex and requires creating/assigning terms.
+                    // For now, we'll just log it.
+                    console.log('Gutenberg tags to add:', tags);
+                }
+            }
+
+            // Update Rank Math fields
+            if (typeof rankMathEditor !== 'undefined') {
+                if (data.meta_description) {
+                    rankMathEditor.updateData('description', data.meta_description);
+                }
+                if (data.focus_keyword) {
+                    rankMathEditor.updateData('focusKeyword', data.focus_keyword);
+                }
+            }
         },
         
         loadUsageInfo: function() {

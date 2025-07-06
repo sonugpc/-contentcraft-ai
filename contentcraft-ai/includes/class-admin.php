@@ -291,7 +291,7 @@ class ContentCraft_AI_Admin {
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
-        wp_send_json_success(array('content' => $result));
+        wp_send_json_success($result);
     }
 
     /**
@@ -315,7 +315,7 @@ class ContentCraft_AI_Admin {
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
-        wp_send_json_success(array('content' => $result));
+        wp_send_json_success($result);
     }
     
     /**
