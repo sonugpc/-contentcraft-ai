@@ -15,7 +15,6 @@
         
         init: function() {
             console.log('ContentCraft AI: Initializing modal functionality');
-            this.bindEvents();
             this.addEditorButtons();
             console.log('ContentCraft AI: Modal initialization complete');
         },
@@ -76,10 +75,6 @@
                 }
             });
             
-            // Prevent modal content click from closing modal
-            $(document).on('click', '.contentcraft-modal-content', function(e) {
-                e.stopPropagation();
-            });
         },
         
         addEditorButtons: function() {
@@ -533,6 +528,7 @@
     // Initialize when document is ready
     $(document).ready(function() {
         ContentCraftModal.init();
+        ContentCraftModal.bindEvents();
     });
     
     // Make ContentCraftModal available globally

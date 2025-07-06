@@ -306,9 +306,10 @@ class ContentCraft_AI_Admin {
 
         $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
         $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
+        $length = isset($_POST['length']) ? sanitize_text_field($_POST['length']) : 'medium';
 
         $api_handler = new ContentCraft_AI_API_Handler();
-        $result = $api_handler->generate_content($title, $tags);
+        $result = $api_handler->generate_content($title, $tags, $length);
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));

@@ -21,7 +21,7 @@ class ContentCraft_AI_Editor {
      * Initialize editor hooks
      */
     private function init_hooks() {
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_modal_assets'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('enqueue_block_editor_assets', array($this, 'enqueue_gutenberg_assets'));
         add_action('media_buttons', array($this, 'add_classic_editor_button'));
         add_action('admin_footer', array($this, 'render_modal_template'));
@@ -29,15 +29,13 @@ class ContentCraft_AI_Editor {
     }
 
     /**
-     * Enqueue modal assets
+     * Enqueue assets
      */
-    public function enqueue_modal_assets($hook) {
-        // Only load on post edit screens
+    public function enqueue_assets($hook) {
         if ('post.php' !== $hook && 'post-new.php' !== $hook) {
             return;
         }
 
-        // Enqueue modal styles
         wp_enqueue_style(
             'contentcraft-ai-modal-styles',
             CONTENTCRAFT_AI_PLUGIN_URL . 'admin/css/admin-styles.css',
@@ -45,7 +43,6 @@ class ContentCraft_AI_Editor {
             CONTENTCRAFT_AI_VERSION
         );
 
-        // Enqueue modal script
         wp_enqueue_script(
             'contentcraft-ai-editor-modal',
             CONTENTCRAFT_AI_PLUGIN_URL . 'admin/js/editor-modal.js',
@@ -54,7 +51,6 @@ class ContentCraft_AI_Editor {
             true
         );
 
-        // Localize script for AJAX
         wp_localize_script('contentcraft-ai-editor-modal', 'contentcraft_ai_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('contentcraft_ai_nonce')

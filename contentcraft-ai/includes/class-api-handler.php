@@ -64,12 +64,13 @@ class ContentCraft_AI_API_Handler {
     /**
      * Generate new content
      */
-    public function generate_content($title, $tags = '') {
+    public function generate_content($title, $tags = '', $length = 'medium') {
         // Prepare post data
         $post_data = array(
             'title' => $title,
             'content' => '',
             'tags' => $tags,
+            'length' => $length,
             'categories' => '',
             'excerpt' => '',
             'author' => wp_get_current_user()->display_name,
