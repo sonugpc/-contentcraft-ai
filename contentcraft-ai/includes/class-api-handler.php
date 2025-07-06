@@ -41,7 +41,7 @@ class ContentCraft_AI_API_Handler {
     /**
      * Enhance existing content
      */
-    public function enhance_content($title, $content, $tags = '') {
+    public function enhance_content($title, $content, $tags = '', $prompt = '') {
         // Prepare post data
         $post_data = array(
             'title' => $title,
@@ -54,8 +54,10 @@ class ContentCraft_AI_API_Handler {
         );
         
         // Get and process prompt template
-        $prompt_template = $this->get_settings()->get_prompt_template('enhancement');
-        $prompt = $this->get_settings()->process_variables($prompt_template, $post_data);
+        if (empty($prompt)) {
+            $prompt = $this->get_settings()->get_prompt_template('enhancement');
+        }
+        $prompt = $this->get_settings()->process_variables($prompt, $post_data);
         
         // Make API request
         return $this->make_api_request($prompt);
@@ -64,7 +66,7 @@ class ContentCraft_AI_API_Handler {
     /**
      * Generate new content
      */
-    public function generate_content($title, $tags = '', $length = 'medium') {
+    public function generate_content($title, $tags = '', $length = 'medium', $prompt = '') {
         // Prepare post data
         $post_data = array(
             'title' => $title,
@@ -78,8 +80,10 @@ class ContentCraft_AI_API_Handler {
         );
         
         // Get and process prompt template
-        $prompt_template = $this->get_settings()->get_prompt_template('generation');
-        $prompt = $this->get_settings()->process_variables($prompt_template, $post_data);
+        if (empty($prompt)) {
+            $prompt = $this->get_settings()->get_prompt_template('generation');
+        }
+        $prompt = $this->get_settings()->process_variables($prompt, $post_data);
         
         // Make API request
         return $this->make_api_request($prompt);
@@ -140,7 +144,7 @@ class ContentCraft_AI_API_Handler {
                 'Content-Type' => 'application/json',
             ),
             'body' => wp_json_encode($request_data),
-            'timeout' => 30,
+            'timeout' => 120,
             'sslverify' => true
         ));
         
@@ -150,7 +154,7 @@ class ContentCraft_AI_API_Handler {
         // Handle response
         if (is_wp_error($response)) {
             $this->log_error('API request failed: ' . $response->get_error_message());
-            return new WP_Error('api_request_failed', __('Failed to connect to API.', 'contentcraft-ai'));
+            return new WP_Error('api_request_failed', __('Failed to connect to API. Possible Timeout', 'contentcraft-ai'));
         }
         
         $response_code = wp_remote_retrieve_response_code($response);

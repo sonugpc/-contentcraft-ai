@@ -341,7 +341,8 @@
 }
 
 .contentcraft-input,
-.contentcraft-select {
+.contentcraft-select,
+.contentcraft-textarea {
     width: 100%;
     padding: 10px;
     border: 1px solid #ced4da;
@@ -351,7 +352,8 @@
 }
 
 .contentcraft-input:focus,
-.contentcraft-select:focus {
+.contentcraft-select:focus,
+.contentcraft-textarea:focus {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);

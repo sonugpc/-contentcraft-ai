@@ -34,8 +34,8 @@ class ContentCraft_AI_Admin {
         add_action('wp_ajax_contentcraft_get_usage_stats', array($this, 'ajax_get_usage_stats'));
         add_action('wp_ajax_contentcraft_enhance_content', array($this, 'ajax_enhance_content'));
         add_action('wp_ajax_contentcraft_generate_content', array($this, 'ajax_generate_content'));
+        add_action('wp_ajax_contentcraft_get_default_prompts', array($this, 'ajax_get_default_prompts'));
         add_action('admin_notices', array($this, 'admin_notices'));
-        add_action('admin_footer', array($this, 'simple_debug')); // Simple debug
     }
     
     /**
@@ -147,6 +147,22 @@ class ContentCraft_AI_Admin {
             array($this, 'enable_logging_callback'),
             'contentcraft-ai-settings',
             'contentcraft_ai_advanced_section'
+        );
+
+        // Schema Display Section
+        add_settings_section(
+            'contentcraft_ai_schema_section',
+            __('Expected JSON Output Schema', 'contentcraft-ai'),
+            array($this, 'schema_section_callback'),
+            'contentcraft-ai-settings'
+        );
+
+        add_settings_field(
+            'schema_display',
+            __('Schema', 'contentcraft-ai'),
+            array($this, 'schema_display_callback'),
+            'contentcraft-ai-settings',
+            'contentcraft_ai_schema_section'
         );
     }
     
@@ -283,9 +299,10 @@ class ContentCraft_AI_Admin {
         $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
         $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
         $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
+        $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
 
         $api_handler = new ContentCraft_AI_API_Handler();
-        $result = $api_handler->enhance_content($title, $content, $tags);
+        $result = $api_handler->enhance_content($title, $content, $tags, $prompt);
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
@@ -307,15 +324,34 @@ class ContentCraft_AI_Admin {
         $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
         $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
         $length = isset($_POST['length']) ? sanitize_text_field($_POST['length']) : 'medium';
+        $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
 
         $api_handler = new ContentCraft_AI_API_Handler();
-        $result = $api_handler->generate_content($title, $tags, $length);
+        $result = $api_handler->generate_content($title, $tags, $length, $prompt);
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
         wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX get default prompts
+     */
+    public function ajax_get_default_prompts() {
+        check_ajax_referer('contentcraft_ai_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => __('Insufficient permissions.', 'contentcraft-ai')));
+        }
+
+        $prompts = array(
+            'enhancement' => $this->settings->get_option('enhancement_prompt', ''),
+            'generation' => $this->settings->get_option('generation_prompt', '')
+        );
+
+        wp_send_json_success($prompts);
     }
     
     /**
@@ -351,6 +387,10 @@ class ContentCraft_AI_Admin {
     
     public function advanced_section_callback() {
         echo '<p>' . __('Advanced configuration options.', 'contentcraft-ai') . '</p>';
+    }
+
+    public function schema_section_callback() {
+        echo '<p>' . __('This is the expected JSON structure for the AI response. Use this as a reference when crafting your prompts.', 'contentcraft-ai') . '</p>';
     }
     
     // Field callbacks
@@ -402,29 +442,17 @@ class ContentCraft_AI_Admin {
         echo '<input type="checkbox" name="contentcraft_ai_settings[enable_logging]" value="1" ' . checked($enable_logging, true, false) . ' />';
         echo '<label>' . __('Enable error logging for debugging.', 'contentcraft-ai') . '</label>';
     }
-    
-    /**
-     * Simple debug footer
-     */
-    public function simple_debug() {
-        if (!function_exists('get_current_screen')) {
-            echo '<script>console.log("ContentCraft AI: get_current_screen function not available");</script>';
-            return;
-        }
-        
-        $screen = get_current_screen();
-        
-        if ($screen) {
-            $screen_base = isset($screen->base) ? $screen->base : 'unknown';
-            $post_type = isset($screen->post_type) ? $screen->post_type : 'none';
-            
-            echo '<script>console.log("ContentCraft AI: Admin debug - Screen: ' . $screen_base . ', Post type: ' . $post_type . '");</script>';
-            
-            if (in_array($screen_base, array('post', 'settings_page_contentcraft-ai-settings'))) {
-                echo '<script>console.log("ContentCraft AI: Scripts should be loaded on this screen");</script>';
-            }
-        } else {
-            echo '<script>console.log("ContentCraft AI: No screen object available");</script>';
-        }
+
+    public function schema_display_callback() {
+        $schema = <<<JSON
+{
+  "enhanced_title": "Improved SEO-friendly title",
+  "enhanced_content": "Enhanced content with proper HTML formatting including headings",
+  "suggested_tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
+  "meta_description": "SEO-optimized meta description (150-160 characters)",
+  "focus_keyword": "primary keyword for this post"
+}
+JSON;
+        echo '<pre style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; white-space: pre-wrap;">' . esc_html($schema) . '</pre>';
     }
 }

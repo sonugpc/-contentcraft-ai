@@ -119,6 +119,9 @@
             // Get current content
             this.currentContent = this.getCurrentContent();
             
+            // Load default prompts
+            this.loadDefaultPrompts();
+
             // Show modal
             $('#contentcraft-ai-modal, #contentcraft-ai-overlay').show();
             $('body').addClass('contentcraft-modal-open');
@@ -314,7 +317,8 @@
                 nonce: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.nonce : '',
                 title: title,
                 content: content,
-                tags: tags
+                tags: tags,
+                prompt: $('#enhancement-prompt').val()
             };
             
             console.log('ContentCraft AI: Making AJAX request');
@@ -328,7 +332,7 @@
                 success: function(response) {
                     console.log('ContentCraft AI: AJAX response received', response);
                     if (response.success) {
-                        self.showEnhancedContent(response.data.content);
+                        self.showEnhancedContent(response.data);
                     } else {
                         self.showError(response.data.message || 'Enhancement failed');
                     }
@@ -368,11 +372,12 @@
                     nonce: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.nonce : '',
                     title: title,
                     tags: tags,
-                    length: length
+                    length: length,
+                    prompt: $('#generation-prompt').val()
                 },
                 success: function(response) {
                     if (response.success) {
-                        self.showGeneratedContent(response.data.content);
+                        self.showGeneratedContent(response.data);
                     } else {
                         self.showError(response.data.message || 'Generation failed');
                     }
@@ -496,6 +501,24 @@
                     rankMathEditor.updateData('focusKeyword', data.focus_keyword);
                 }
             }
+        },
+
+        loadDefaultPrompts: function() {
+            var self = this;
+            $.ajax({
+                url: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.ajax_url : ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'contentcraft_get_default_prompts',
+                    nonce: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.nonce : ''
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $('#enhancement-prompt').val(response.data.enhancement);
+                        $('#generation-prompt').val(response.data.generation);
+                    }
+                }
+            });
         },
         
         loadUsageInfo: function() {

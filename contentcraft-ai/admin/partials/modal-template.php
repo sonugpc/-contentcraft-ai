@@ -33,6 +33,12 @@ if (!defined('ABSPATH')) {
                         <p><?php _e('Loading current content...', 'contentcraft-ai'); ?></p>
                     </div>
                 </div>
+
+                <div class="contentcraft-field">
+                    <label for="enhancement-prompt"><?php _e('Enhancement Prompt:', 'contentcraft-ai'); ?></label>
+                    <textarea id="enhancement-prompt" class="contentcraft-textarea" rows="4"></textarea>
+                    <p class="description"><?php _e('Available variables: {post_title}, {post_content}, {tags}', 'contentcraft-ai'); ?></p>
+                </div>
                 
                 <div class="contentcraft-controls">
                     <button id="enhance-content-btn" class="button button-primary">
@@ -79,6 +85,11 @@ if (!defined('ABSPATH')) {
                             <option value="medium" selected><?php _e('Medium (4-6 paragraphs)', 'contentcraft-ai'); ?></option>
                             <option value="long"><?php _e('Long (7+ paragraphs)', 'contentcraft-ai'); ?></option>
                         </select>
+                    </div>
+                    <div class="contentcraft-field">
+                        <label for="generation-prompt"><?php _e('Generation Prompt:', 'contentcraft-ai'); ?></label>
+                        <textarea id="generation-prompt" class="contentcraft-textarea" rows="4"></textarea>
+                        <p class="description"><?php _e('Available variables: {post_title}, {tags}', 'contentcraft-ai'); ?></p>
                     </div>
                 </div>
                 

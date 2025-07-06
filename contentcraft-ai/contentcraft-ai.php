@@ -2,8 +2,8 @@
 /**
  * Plugin Name: ContentCraft AI
  * Description: AI-powered content enhancement and generation for WordPress using Gemini API
- * Version: 1.0.0
- * Author: Your Name
+ * Version: 1.1
+ * Author: Sonu Gupta
  * Text Domain: contentcraft-ai
  * Domain Path: /languages
  */
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('CONTENTCRAFT_AI_VERSION', '1.0.0');
+define('CONTENTCRAFT_AI_VERSION', '1.1');
 define('CONTENTCRAFT_AI_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CONTENTCRAFT_AI_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('CONTENTCRAFT_AI_PLUGIN_BASENAME', plugin_basename(__FILE__));
