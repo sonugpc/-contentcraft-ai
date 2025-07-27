@@ -5,27 +5,21 @@
 (function($) {
     'use strict';
     
-    var ContentCraftModal = {
+    var ContentCraftEditor = {
         
-        isOpen: false,
         currentEditor: null,
         currentContent: '',
         lastEnhancedContent: '',
         lastGeneratedContent: '',
         
         init: function() {
-            console.log('ContentCraft AI: Initializing modal functionality');
-            this.addEditorButtons();
-            console.log('ContentCraft AI: Modal initialization complete');
+            this.determineEditor();
+            this.bindEvents();
+            this.loadInitialData();
         },
         
         bindEvents: function() {
             var self = this;
-            
-            // Modal controls
-            $(document).on('click', '.contentcraft-modal-close, #contentcraft-ai-overlay', function() {
-                self.close();
-            });
             
             // Tab switching
             $(document).on('click', '.contentcraft-tab-button', function() {
@@ -35,7 +29,6 @@
             
             // Enhancement controls
             $(document).on('click', '#enhance-content-btn', function() {
-                console.log('ContentCraft AI: Enhance content button clicked');
                 self.enhanceContent();
             });
             
@@ -44,7 +37,7 @@
             });
             
             $(document).on('click', '#reject-enhanced-btn', function() {
-                self.close();
+                $('#enhanced-content-preview').hide();
             });
             
             $(document).on('click', '#regenerate-enhanced-btn', function() {
@@ -61,91 +54,50 @@
             });
             
             $(document).on('click', '#reject-generated-btn', function() {
-                self.close();
+                $('#generated-content-preview').hide();
             });
             
             $(document).on('click', '#regenerate-content-btn', function() {
                 self.generateContent();
             });
-            
-            // Escape key to close
-            $(document).on('keydown', function(e) {
-                if (e.keyCode === 27 && self.isOpen) {
-                    self.close();
-                }
-            });
-            
-        },
-        
-        addEditorButtons: function() {
-            var self = this;
-            
-            // Add button to Classic Editor
-            $(document).on('click', '#contentcraft-ai-classic-button', function(e) {
-                e.preventDefault();
-                console.log('ContentCraft AI: Classic editor button clicked');
-                self.open('classic');
-            });
-            
-            // Add button to Gutenberg (handled by separate script)
-            // Check if Gutenberg is available
-            if (typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor')) {
-                this.addGutenbergButton();
-            }
-        },
-        
-        addGutenbergButton: function() {
-            var self = this;
-            
-            // Add floating button for Gutenberg
-            if ($('#contentcraft-ai-gutenberg-button').length === 0) {
-                var buttonHtml = '<div id="contentcraft-ai-gutenberg-button" class="contentcraft-editor-button contentcraft-floating-button">';
-                buttonHtml += '<span class="dashicons dashicons-admin-generic"></span>';
-                buttonHtml += '<span class="button-text">ContentCraft AI</span>';
-                buttonHtml += '</div>';
-                
-                $('body').append(buttonHtml);
-                
-                $('#contentcraft-ai-gutenberg-button').on('click', function() {
-                    self.open('gutenberg');
-                });
-            }
-        },
-        
-        open: function(editor) {
-            this.currentEditor = editor;
-            this.isOpen = true;
-            
-            // Get current content
-            this.currentContent = this.getCurrentContent();
-            
-            // Load default prompts
-            this.loadDefaultPrompts();
 
-            // Show modal
-            $('#contentcraft-ai-modal, #contentcraft-ai-overlay').show();
-            $('body').addClass('contentcraft-modal-open');
-            
-            // Load current content preview
-            this.loadCurrentContentPreview();
-            
-            // Load usage info
-            this.loadUsageInfo();
-            
-            // Focus on modal
-            $('#contentcraft-ai-modal').focus();
+            // Query controls
+            $(document).on('click', '#general-query-btn', function() {
+                self.submitGeneralQuery();
+            });
+
+            $(document).on('click', '#insert-query-result-btn', function() {
+                self.insertQueryResult();
+            });
+
+            $(document).on('click', '#copy-query-result-btn', function() {
+                self.copyQueryResult();
+            });
+
+            // Internal links controls
+            $(document).on('click', '#fetch-internal-links-btn', function() {
+                self.fetchInternalLinks();
+            });
+
+            // Parse JSON controls
+            $(document).on('click', '#parse-json-btn', function() {
+                self.parseAndInsertJson();
+            });
         },
         
-        close: function() {
-            this.isOpen = false;
-            this.currentEditor = null;
-            this.currentContent = '';
-            
-            $('#contentcraft-ai-modal, #contentcraft-ai-overlay').hide();
-            $('body').removeClass('contentcraft-modal-open');
-            
-            // Reset modal state
-            this.resetModal();
+        determineEditor: function() {
+            if ($('body').hasClass('block-editor-page')) {
+                this.currentEditor = 'gutenberg';
+            } else {
+                this.currentEditor = 'classic';
+            }
+        },
+        
+        loadInitialData: function() {
+            this.currentContent = this.getCurrentContent();
+            this.loadDefaultPrompts();
+            this.loadCurrentContentPreview();
+            this.loadUsageInfo();
         },
         
         switchTab: function(tab) {
@@ -233,21 +185,37 @@
         },
         
         setContent: function(content) {
-            if (this.currentEditor === 'classic') {
-                // Classic Editor
-                if (typeof tinymce !== 'undefined' && tinymce.get('content')) {
-                    tinymce.get('content').setContent(content);
-                } else if ($('#content').length) {
-                    $('#content').val(content);
+            try {
+                if (this.currentEditor === 'classic') {
+                    if (typeof tinymce !== 'undefined' && tinymce.get('content')) {
+                        tinymce.get('content').setContent(content);
+                    } else if ($('#content').length) {
+                        $('#content').val(content).trigger('change');
+                    } else {
+                        throw new Error('Classic editor content area not found.');
+                    }
+                } else if (this.currentEditor === 'gutenberg') {
+                    if (typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
+                        wp.data.dispatch('core/editor').editPost({ content: content });
+                    } else {
+                        throw new Error('Gutenberg editor not available.');
+                    }
                 }
-            } else if (this.currentEditor === 'gutenberg') {
-                // Gutenberg Editor
-                if (typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
-                    wp.data.dispatch('core/editor').editPost({
-                        content: content
-                    });
-                }
+            } catch (e) {
+                console.error('ContentCraft AI: Error setting content:', e);
+                this.showError('Failed to insert content into the editor. Please try copying and pasting manually.');
+                // As a fallback, offer the content in a textarea
+                this.showFallbackContent(content);
             }
+        },
+
+        showFallbackContent: function(content) {
+            var fallbackHtml = '<div class="contentcraft-fallback-content">';
+            fallbackHtml += '<h3>' + 'Copy Manually' + '</h3>';
+            fallbackHtml += '<p>' + 'Could not automatically insert content. Please copy and paste it from the textarea below.' + '</p>';
+            fallbackHtml += '<textarea rows="10" style="width:100%;">' + this.escapeHtml(content) + '</textarea>';
+            fallbackHtml += '</div>';
+            $('.contentcraft-meta-box-content').append(fallbackHtml);
         },
         
         loadCurrentContentPreview: function() {
@@ -318,7 +286,8 @@
                 title: title,
                 content: content,
                 tags: tags,
-                prompt: $('#enhancement-prompt').val()
+                prompt: $('#enhancement-prompt').val(),
+                post_id: this.getPostId()
             };
             
             console.log('ContentCraft AI: Making AJAX request');
@@ -373,7 +342,8 @@
                     title: title,
                     tags: tags,
                     length: length,
-                    prompt: $('#generation-prompt').val()
+                    prompt: $('#generation-prompt').val(),
+                    post_id: this.getPostId()
                 },
                 success: function(response) {
                     if (response.success) {
@@ -391,11 +361,50 @@
                 }
             });
         },
+
+        submitGeneralQuery: function() {
+            var self = this;
+            var prompt = $('#general-query-prompt').val();
+
+            if (!prompt || prompt.trim() === '') {
+                this.showError('Please enter a query.');
+                return;
+            }
+
+            $('#query-loading').show();
+            $('#general-query-btn').prop('disabled', true);
+            $('#query-result-preview').hide();
+
+            $.ajax({
+                url: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.ajax_url : ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'contentcraft_general_query',
+                    nonce: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.nonce : '',
+                    prompt: prompt
+                },
+                success: function(response) {
+                    if (response.success) {
+                        self.showQueryResult(response.data.text);
+                    } else {
+                        self.showError(response.data.message || 'Query failed');
+                    }
+                },
+                error: function() {
+                    self.showError('Request failed. Please try again.');
+                },
+                complete: function() {
+                    $('#query-loading').hide();
+                    $('#general-query-btn').prop('disabled', false);
+                }
+            });
+        },
         
         showEnhancedContent: function(data) {
             this.lastEnhancedContent = data.enhanced_content; // Store for later retrieval
             var preview = this.createContentPreview(data.enhanced_content, 'Enhanced');
             $('#enhanced-content').html(preview);
+            $('#enhanced-json-response').val(JSON.stringify(data, null, 2));
             $('#enhanced-content-preview').show();
 
             // Update other fields
@@ -406,10 +415,98 @@
             this.lastGeneratedContent = data.enhanced_content; // Store for later retrieval
             var preview = this.createContentPreview(data.enhanced_content, 'Generated');
             $('#generated-content').html(preview);
+            $('#generated-json-response').val(JSON.stringify(data, null, 2));
             $('#generated-content-preview').show();
 
             // Update other fields
             this.updateEditorFields(data);
+        },
+
+        showQueryResult: function(result) {
+            $('#query-result').html('<p>' + this.escapeHtml(result) + '</p>');
+            $('#query-result-preview').show();
+        },
+
+        insertQueryResult: function() {
+            var result = $('#query-result').text();
+            this.setContent(this.currentContent + '\n\n' + result);
+        },
+
+        copyQueryResult: function() {
+            var result = $('#query-result').text();
+            navigator.clipboard.writeText(result).then(function() {
+                alert('Copied to clipboard!');
+            }, function() {
+                alert('Failed to copy to clipboard.');
+            });
+        },
+
+        fetchInternalLinks: function() {
+            var self = this;
+            var postId = this.getPostId();
+            var title = $('#internal-links-title').val();
+            var tags = $('#internal-links-tags').val();
+            var category = $('#internal-links-category').val();
+
+            if (!postId) {
+                this.showError('Could not determine the current post ID.');
+                return;
+            }
+
+            $('#internal-links-loading').show();
+            $('#fetch-internal-links-btn').prop('disabled', true);
+            $('#internal-links-result').hide();
+
+            $.ajax({
+                url: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.ajax_url : ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'contentcraft_fetch_internal_links',
+                    nonce: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.nonce : '',
+                    post_id: postId,
+                    title: title,
+                    tags: tags,
+                    category: category
+                },
+                success: function(response) {
+                    if (response.success) {
+                        self.showInternalLinks(response.data);
+                    } else {
+                        self.showError(response.data.message || 'Failed to fetch internal links.');
+                    }
+                },
+                error: function() {
+                    self.showError('Request failed. Please try again.');
+                },
+                complete: function() {
+                    $('#internal-links-loading').hide();
+                    $('#fetch-internal-links-btn').prop('disabled', false);
+                }
+            });
+        },
+
+        showInternalLinks: function(links) {
+            var list = $('<ul>');
+            if (links.length) {
+                links.forEach(function(link) {
+                    list.append('<li><a href="' + link.url + '" target="_blank">' + link.title + '</a></li>');
+                });
+            } else {
+                list.append('<li>' + 'No similar posts found.' + '</li>');
+            }
+            $('#internal-links-list').html(list);
+            $('#internal-links-result').show();
+        },
+
+        getPostId: function() {
+            if (this.currentEditor === 'classic') {
+                return $('#post_ID').val();
+            } else if (this.currentEditor === 'gutenberg') {
+                if (typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor')) {
+                    return wp.data.select('core/editor').getCurrentPostId();
+                }
+            }
+            return 0;
         },
         
         createContentPreview: function(content, type) {
@@ -445,29 +542,41 @@
         },
         
         acceptEnhancedContent: function() {
-            // Get the raw content from the details element
-            var content = $('#enhanced-content .raw-content-sample pre').text();
-            if (!content) {
-                // Fallback to getting from stored variable if available
-                content = this.lastEnhancedContent || '';
+            try {
+                var jsonResponse = JSON.parse($('#enhanced-json-response').val());
+                var content = jsonResponse.enhanced_content || '';
+                console.log('ContentCraft AI: Accepting enhanced content (length: ' + content.length + ')');
+                this.setContent(content);
+                this.updateEditorFields(jsonResponse);
+            } catch (e) {
+                this.showError('Invalid JSON in the response textarea.');
             }
-            
-            console.log('ContentCraft AI: Accepting enhanced content (length: ' + content.length + ')');
-            this.setContent(content);
-            this.close();
         },
         
         acceptGeneratedContent: function() {
-            // Get the raw content from the details element
-            var content = $('#generated-content .raw-content-sample pre').text();
-            if (!content) {
-                // Fallback to getting from stored variable if available
-                content = this.lastGeneratedContent || '';
+            try {
+                var jsonResponse = JSON.parse($('#generated-json-response').val());
+                var content = jsonResponse.enhanced_content || '';
+                console.log('ContentCraft AI: Accepting generated content (length: ' + content.length + ')');
+                this.setContent(content);
+                this.updateEditorFields(jsonResponse);
+            } catch (e) {
+                this.showError('Invalid JSON in the response textarea.');
             }
-            
-            console.log('ContentCraft AI: Accepting generated content (length: ' + content.length + ')');
-            this.setContent(content);
-            this.close();
+        },
+
+        parseAndInsertJson: function() {
+            try {
+                var jsonResponse = JSON.parse($('#parse-json-textarea').val());
+                var content = jsonResponse.enhanced_content || '';
+                if (content) {
+                    this.setContent(content);
+                } else {
+                    this.showError('The JSON does not contain an "enhanced_content" field.');
+                }
+            } catch (e) {
+                this.showError('Invalid JSON provided.');
+            }
         },
 
         updateEditorFields: function(data) {
@@ -538,29 +647,24 @@
             });
         },
         
-        resetModal: function() {
+        resetInterface: function() {
             $('.contentcraft-result').hide();
             $('.contentcraft-loading').hide();
             $('#enhanced-content, #generated-content').empty();
             $('#generation-title, #generation-tags').val('');
             $('#generation-length').val('medium');
             
-            // Clear stored content
             this.lastEnhancedContent = '';
             this.lastGeneratedContent = '';
             
-            // Reset to enhance tab
             this.switchTab('enhance');
         },
         
         showError: function(message) {
-            var errorHtml = '<div class="contentcraft-error">';
-            errorHtml += '<p><strong>Error:</strong> ' + this.escapeHtml(message) + '</p>';
-            errorHtml += '</div>';
+            var errorHtml = '<div class="contentcraft-error notice notice-error is-dismissible"><p>' + this.escapeHtml(message) + '</p></div>';
             
-            $('.contentcraft-modal-body').prepend(errorHtml);
+            $('.contentcraft-meta-box-content').prepend(errorHtml);
             
-            // Auto-remove error after 5 seconds
             setTimeout(function() {
                 $('.contentcraft-error').fadeOut(function() {
                     $(this).remove();
@@ -587,13 +691,12 @@
         }
     };
     
-    // Initialize when document is ready
     $(document).ready(function() {
-        ContentCraftModal.init();
-        ContentCraftModal.bindEvents();
+        if ($('#contentcraft_ai_meta_box').length) {
+            ContentCraftEditor.init();
+        }
     });
     
-    // Make ContentCraftModal available globally
-    window.ContentCraftModal = ContentCraftModal;
+    window.ContentCraftEditor = ContentEditor;
     
 })(jQuery);

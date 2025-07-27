@@ -24,8 +24,7 @@ class ContentCraft_AI_Editor {
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('enqueue_block_editor_assets', array($this, 'enqueue_gutenberg_assets'));
         add_action('media_buttons', array($this, 'add_classic_editor_button'));
-        add_action('admin_footer', array($this, 'render_modal_template'));
-        add_action('wp_footer', array($this, 'render_modal_template'));
+        add_action('add_meta_boxes', array($this, 'add_meta_box'));
     }
 
     /**
@@ -100,33 +99,21 @@ class ContentCraft_AI_Editor {
     /**
      * Render modal template
      */
-    public function render_modal_template() {
-        // Check if we're in admin and on a post editing page
-        if (!is_admin()) {
-            return;
-        }
-        
-        // Check if get_current_screen is available
-        if (!function_exists('get_current_screen')) {
-            // Fallback: check global variables
-            global $pagenow, $typenow;
-            if (!in_array($pagenow, array('post.php', 'post-new.php')) || !in_array($typenow, array('post', 'page'))) {
-                return;
-            }
-        } else {
-            $screen = get_current_screen();
-            
-            // Only render on post edit screens
-            if (!$screen || !isset($screen->base) || $screen->base !== 'post') {
-                return;
-            }
-            
-            // Make sure we're on a post type that supports the editor
-            if (!isset($screen->post_type) || !in_array($screen->post_type, array('post', 'page'))) {
-                return;
-            }
-        }
-        
+    public function add_meta_box() {
+        add_meta_box(
+            'contentcraft_ai_meta_box',
+            __('ContentCraft AI', 'contentcraft-ai'),
+            array($this, 'render_meta_box_content'),
+            array('post', 'page'),
+            'normal',
+            'high'
+        );
+    }
+
+    /**
+     * Render meta box content
+     */
+    public function render_meta_box_content() {
         include CONTENTCRAFT_AI_PLUGIN_PATH . 'admin/partials/modal-template.php';
     }
     

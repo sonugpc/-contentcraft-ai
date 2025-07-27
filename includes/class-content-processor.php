@@ -302,4 +302,41 @@ class ContentCraft_AI_Content_Processor {
         
         return $errors;
     }
+
+    /**
+     * Add internal links to content
+     */
+    public function add_internal_links($content, $post_id) {
+        $post_tags = wp_get_post_tags($post_id, ['fields' => 'names']);
+        $post_title_words = explode(' ', get_the_title($post_id));
+        $keywords = array_merge($post_tags, $post_title_words);
+        $keywords = array_unique(array_filter($keywords));
+
+        if (empty($keywords)) {
+            return $content;
+        }
+
+        $args = [
+            'post_type' => 'post',
+            'post_status' => 'publish',
+            'posts_per_page' => 10,
+            's' => implode(' ', $keywords),
+            'post__not_in' => [$post_id],
+        ];
+
+        $query = new WP_Query($args);
+
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $link = get_permalink();
+                $title = get_the_title();
+                $content = preg_replace('/\b(' . preg_quote($title, '/') . ')\b/i', '<a href="' . esc_url($link) . '">$1</a>', $content, 1);
+            }
+        }
+
+        wp_reset_postdata();
+
+        return $content;
+    }
 }

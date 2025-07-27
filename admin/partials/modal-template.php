@@ -9,20 +9,22 @@ if (!defined('ABSPATH')) {
 }
 ?>
 
-<div id="contentcraft-ai-modal" class="contentcraft-modal" style="display: none;">
-    <div class="contentcraft-modal-content">
-        <div class="contentcraft-modal-header">
-            <h2><?php _e('ContentCraft AI', 'contentcraft-ai'); ?></h2>
-            <span class="contentcraft-modal-close">&times;</span>
-        </div>
-        
-        <div class="contentcraft-modal-body">
+<div class="contentcraft-meta-box-content">
             <div class="contentcraft-tabs">
                 <button class="contentcraft-tab-button active" data-tab="enhance">
                     <?php _e('Enhance Content', 'contentcraft-ai'); ?>
                 </button>
                 <button class="contentcraft-tab-button" data-tab="generate">
                     <?php _e('Generate New', 'contentcraft-ai'); ?>
+                </button>
+                <button class="contentcraft-tab-button" data-tab="query">
+                    <?php _e('General Query', 'contentcraft-ai'); ?>
+                </button>
+                <button class="contentcraft-tab-button" data-tab="internal-links">
+                    <?php _e('Internal Links', 'contentcraft-ai'); ?>
+                </button>
+                <button class="contentcraft-tab-button" data-tab="parse-json">
+                    <?php _e('Parse JSON', 'contentcraft-ai'); ?>
                 </button>
             </div>
             
@@ -53,6 +55,10 @@ if (!defined('ABSPATH')) {
                 <div id="enhanced-content-preview" class="contentcraft-result" style="display: none;">
                     <h3><?php _e('Enhanced Content', 'contentcraft-ai'); ?></h3>
                     <div id="enhanced-content"></div>
+                    <div class="contentcraft-field">
+                        <label for="enhanced-json-response"><?php _e('Raw JSON Response:', 'contentcraft-ai'); ?></label>
+                        <textarea id="enhanced-json-response" class="contentcraft-textarea" rows="8"></textarea>
+                    </div>
                     <div class="contentcraft-actions">
                         <button id="accept-enhanced-btn" class="button button-primary">
                             <?php _e('Accept Changes', 'contentcraft-ai'); ?>
@@ -106,6 +112,10 @@ if (!defined('ABSPATH')) {
                 <div id="generated-content-preview" class="contentcraft-result" style="display: none;">
                     <h3><?php _e('Generated Content', 'contentcraft-ai'); ?></h3>
                     <div id="generated-content"></div>
+                    <div class="contentcraft-field">
+                        <label for="generated-json-response"><?php _e('Raw JSON Response:', 'contentcraft-ai'); ?></label>
+                        <textarea id="generated-json-response" class="contentcraft-textarea" rows="8"></textarea>
+                    </div>
                     <div class="contentcraft-actions">
                         <button id="accept-generated-btn" class="button button-primary">
                             <?php _e('Use This Content', 'contentcraft-ai'); ?>
@@ -119,14 +129,75 @@ if (!defined('ABSPATH')) {
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="contentcraft-modal-footer">
-            <div class="contentcraft-usage-info">
-                <small id="usage-info-text"><?php _e('Usage: Loading...', 'contentcraft-ai'); ?></small>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div id="contentcraft-ai-overlay" class="contentcraft-overlay" style="display: none;"></div>
+            <div id="query-tab" class="contentcraft-tab-content">
+                <h3><?php _e('General AI Query', 'contentcraft-ai'); ?></h3>
+                <div class="contentcraft-field">
+                    <label for="general-query-prompt"><?php _e('Your Question:', 'contentcraft-ai'); ?></label>
+                    <textarea id="general-query-prompt" class="contentcraft-textarea" rows="4" placeholder="<?php _e('Ask anything...', 'contentcraft-ai'); ?>"></textarea>
+                </div>
+                <div class="contentcraft-controls">
+                    <button id="general-query-btn" class="button button-primary">
+                        <?php _e('Submit Query', 'contentcraft-ai'); ?>
+                    </button>
+                    <div id="query-loading" class="contentcraft-loading" style="display: none;">
+                        <div class="contentcraft-spinner"></div>
+                        <p><?php _e('Processing...', 'contentcraft-ai'); ?></p>
+                    </div>
+                </div>
+                <div id="query-result-preview" class="contentcraft-result" style="display: none;">
+                    <h3><?php _e('AI Response', 'contentcraft-ai'); ?></h3>
+                    <div id="query-result"></div>
+                    <div class="contentcraft-actions">
+                        <button id="insert-query-result-btn" class="button button-primary">
+                            <?php _e('Insert into Editor', 'contentcraft-ai'); ?>
+                        </button>
+                        <button id="copy-query-result-btn" class="button button-secondary">
+                            <?php _e('Copy to Clipboard', 'contentcraft-ai'); ?>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="internal-links-tab" class="contentcraft-tab-content">
+                <h3><?php _e('Find Internal Links', 'contentcraft-ai'); ?></h3>
+                <div class="contentcraft-field">
+                    <label for="internal-links-title"><?php _e('Title:', 'contentcraft-ai'); ?></label>
+                    <input type="text" id="internal-links-title" class="contentcraft-input" placeholder="<?php _e('Enter title keywords...', 'contentcraft-ai'); ?>">
+                </div>
+                <div class="contentcraft-field">
+                    <label for="internal-links-tags"><?php _e('Tags:', 'contentcraft-ai'); ?></label>
+                    <input type="text" id="internal-links-tags" class="contentcraft-input" placeholder="<?php _e('Enter tags separated by commas...', 'contentcraft-ai'); ?>">
+                </div>
+                <div class="contentcraft-field">
+                    <label for="internal-links-category"><?php _e('Category:', 'contentcraft-ai'); ?></label>
+                    <input type="text" id="internal-links-category" class="contentcraft-input" placeholder="<?php _e('Enter category name...', 'contentcraft-ai'); ?>">
+                </div>
+                <div class="contentcraft-controls">
+                    <button id="fetch-internal-links-btn" class="button button-primary">
+                        <?php _e('Fetch Similar Posts', 'contentcraft-ai'); ?>
+                    </button>
+                    <div id="internal-links-loading" class="contentcraft-loading" style="display: none;">
+                        <div class="contentcraft-spinner"></div>
+                        <p><?php _e('Fetching...', 'contentcraft-ai'); ?></p>
+                    </div>
+                </div>
+                <div id="internal-links-result" class="contentcraft-result" style="display: none;">
+                    <h3><?php _e('Suggested Internal Links', 'contentcraft-ai'); ?></h3>
+                    <div id="internal-links-list"></div>
+                </div>
+            </div>
+
+            <div id="parse-json-tab" class="contentcraft-tab-content">
+                <h3><?php _e('Parse and Insert JSON', 'contentcraft-ai'); ?></h3>
+                <div class="contentcraft-field">
+                    <label for="parse-json-textarea"><?php _e('Paste JSON here:', 'contentcraft-ai'); ?></label>
+                    <textarea id="parse-json-textarea" class="contentcraft-textarea" rows="10" placeholder="<?php _e('Paste the JSON response from the AI here...', 'contentcraft-ai'); ?>"></textarea>
+                </div>
+                <div class="contentcraft-controls">
+                    <button id="parse-json-btn" class="button button-primary">
+                        <?php _e('Parse and Insert Content', 'contentcraft-ai'); ?>
+                    </button>
+                </div>
+            </div>
+</div>

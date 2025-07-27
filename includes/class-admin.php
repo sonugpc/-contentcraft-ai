@@ -34,6 +34,8 @@ class ContentCraft_AI_Admin {
         add_action('wp_ajax_contentcraft_get_usage_stats', array($this, 'ajax_get_usage_stats'));
         add_action('wp_ajax_contentcraft_enhance_content', array($this, 'ajax_enhance_content'));
         add_action('wp_ajax_contentcraft_generate_content', array($this, 'ajax_generate_content'));
+        add_action('wp_ajax_contentcraft_general_query', array($this, 'ajax_general_query'));
+        add_action('wp_ajax_contentcraft_fetch_internal_links', array($this, 'ajax_fetch_internal_links'));
         add_action('wp_ajax_contentcraft_get_default_prompts', array($this, 'ajax_get_default_prompts'));
         add_action('admin_notices', array($this, 'admin_notices'));
     }
@@ -300,12 +302,18 @@ class ContentCraft_AI_Admin {
         $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
         $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
         $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
 
         $api_handler = new ContentCraft_AI_API_Handler();
         $result = $api_handler->enhance_content($title, $content, $tags, $prompt);
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        if ($post_id > 0 && !empty($result['enhanced_content'])) {
+            $content_processor = new ContentCraft_AI_Content_Processor();
+            $result['enhanced_content'] = $content_processor->add_internal_links($result['enhanced_content'], $post_id);
         }
 
         wp_send_json_success($result);
@@ -325,6 +333,7 @@ class ContentCraft_AI_Admin {
         $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
         $length = isset($_POST['length']) ? sanitize_text_field($_POST['length']) : 'medium';
         $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
 
         $api_handler = new ContentCraft_AI_API_Handler();
         $result = $api_handler->generate_content($title, $tags, $length, $prompt);
@@ -333,7 +342,90 @@ class ContentCraft_AI_Admin {
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
+        if ($post_id > 0 && !empty($result['enhanced_content'])) {
+            $content_processor = new ContentCraft_AI_Content_Processor();
+            $result['enhanced_content'] = $content_processor->add_internal_links($result['enhanced_content'], $post_id);
+        }
+
         wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX general query
+     */
+    public function ajax_general_query() {
+        check_ajax_referer('contentcraft_ai_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => __('Insufficient permissions.', 'contentcraft-ai')));
+        }
+
+        $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
+
+        $api_handler = new ContentCraft_AI_API_Handler();
+        $result = $api_handler->general_query($prompt);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX fetch internal links
+     */
+    public function ajax_fetch_internal_links() {
+        check_ajax_referer('contentcraft_ai_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(['message' => __('Insufficient permissions.', 'contentcraft-ai')]);
+        }
+
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+        $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
+        $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
+        $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
+
+        if (empty($post_id)) {
+            wp_send_json_error(['message' => __('Invalid post ID.', 'contentcraft-ai')]);
+        }
+
+        $args = [
+            'post_type' => 'post',
+            'post_status' => 'publish',
+            'posts_per_page' => 10,
+            'post__not_in' => [$post_id],
+        ];
+
+        if (!empty($title)) {
+            $args['s'] = $title;
+        }
+
+        if (!empty($tags)) {
+            $args['tag'] = $tags;
+        }
+
+        if (!empty($category)) {
+            $args['category_name'] = $category;
+        }
+
+        $query = new WP_Query($args);
+        $links = [];
+
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $links[] = [
+                    'url' => get_permalink(),
+                    'title' => get_the_title(),
+                ];
+            }
+        }
+
+        wp_reset_postdata();
+
+        wp_send_json_success($links);
     }
 
     /**
