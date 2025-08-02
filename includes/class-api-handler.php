@@ -211,8 +211,18 @@ class ContentCraft_AI_API_Handler {
         $structured_data = json_decode($content, true);
 
         if ($json_response && json_last_error() !== JSON_ERROR_NONE) {
-            $this->log_error('Failed to parse structured JSON from API response: ' . json_last_error_msg());
-            return new WP_Error('json_error', __('Failed to parse structured JSON from API response.', 'contentcraft-ai'));
+            $this->log_error('Failed to parse structured JSON from API response: ' . json_last_error_msg() . '. Raw content: ' . substr($content, 0, 500));
+            
+            // Return the raw content with a fallback structure so frontend can handle it
+            return [
+                'enhanced_title' => '',
+                'enhanced_content' => $content, // Return raw content as fallback
+                'suggested_tags' => [],
+                'meta_description' => '',
+                'focus_keyword' => '',
+                'raw_response' => $content, // Include raw response for debugging
+                'parse_error' => json_last_error_msg()
+            ];
         }
 
         // Sanitize the fields

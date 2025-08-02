@@ -231,6 +231,7 @@ class ContentCraft_AI_Admin {
      * Enqueue admin scripts
      */
     public function enqueue_scripts($hook) {
+        // Enqueue scripts for settings page
         if ('settings_page_contentcraft-ai-settings' === $hook) {
             wp_enqueue_script(
                 'contentcraft-ai-admin-settings',
@@ -248,6 +249,29 @@ class ContentCraft_AI_Admin {
                     'success' => __('Connection successful!', 'contentcraft-ai'),
                     'error' => __('Connection failed. Please check your API key.', 'contentcraft-ai'),
                 )
+            ));
+        }
+
+        // Enqueue scripts and styles for post editor
+        if (in_array($hook, array('post.php', 'post-new.php'))) {
+            wp_enqueue_style(
+                'contentcraft-ai-admin-styles',
+                CONTENTCRAFT_AI_PLUGIN_URL . 'admin/css/admin-styles.css',
+                array(),
+                CONTENTCRAFT_AI_VERSION
+            );
+
+            wp_enqueue_script(
+                'contentcraft-ai-editor-modal',
+                CONTENTCRAFT_AI_PLUGIN_URL . 'admin/js/editor-modal.js',
+                array('jquery', 'wp-data', 'wp-dom-ready'),
+                CONTENTCRAFT_AI_VERSION,
+                true
+            );
+
+            wp_localize_script('contentcraft-ai-editor-modal', 'contentcraft_ai_ajax', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('contentcraft_ai_nonce')
             ));
         }
     }

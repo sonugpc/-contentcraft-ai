@@ -27,6 +27,17 @@
                 self.switchTab(tab);
             });
             
+            // Content change detection for classic editor
+            $(document).on('input keyup', '#content', function() {
+                // Debounce content refresh
+                clearTimeout(self.contentRefreshTimeout);
+                self.contentRefreshTimeout = setTimeout(function() {
+                    if ($('.contentcraft-tab-button[data-tab="enhance"]').hasClass('active')) {
+                        self.loadCurrentContentPreview();
+                    }
+                }, 1000);
+            });
+            
             // Enhancement controls
             $(document).on('click', '#enhance-content-btn', function() {
                 self.enhanceContent();
@@ -86,18 +97,76 @@
         },
         
         determineEditor: function() {
-            if ($('body').hasClass('block-editor-page')) {
+            // Check for Gutenberg first
+            if ($('body').hasClass('block-editor-page') || 
+                (typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor'))) {
                 this.currentEditor = 'gutenberg';
-            } else {
+                console.log('ContentCraft AI: Detected Gutenberg editor');
+            } else if (typeof tinymce !== 'undefined' || $('#content').length) {
                 this.currentEditor = 'classic';
+                console.log('ContentCraft AI: Detected Classic editor');
+            } else {
+                // Fallback - assume classic
+                this.currentEditor = 'classic';
+                console.log('ContentCraft AI: Could not detect editor type, defaulting to classic');
             }
         },
         
         loadInitialData: function() {
-            this.currentContent = this.getCurrentContent();
+            var self = this;
+            
+            // Load non-content dependent data immediately
             this.loadDefaultPrompts();
-            this.loadCurrentContentPreview();
             this.loadUsageInfo();
+            
+            // Delay content loading to ensure editor is ready
+            setTimeout(function() {
+                self.currentContent = self.getCurrentContent();
+                self.loadCurrentContentPreview();
+            }, 1000);
+            
+            // Also set up a delayed retry in case the editor takes longer to load
+            setTimeout(function() {
+                var content = self.getCurrentContent();
+                if (!content || content.trim() === '') {
+                    console.log('ContentCraft AI: Retrying content detection...');
+                    self.loadCurrentContentPreview();
+                }
+                
+                // Set up TinyMCE change listener if available
+                if (typeof tinymce !== 'undefined' && tinymce.get('content')) {
+                    tinymce.get('content').on('change keyup', function() {
+                        clearTimeout(self.contentRefreshTimeout);
+                        self.contentRefreshTimeout = setTimeout(function() {
+                            if ($('.contentcraft-tab-button[data-tab="enhance"]').hasClass('active')) {
+                                self.loadCurrentContentPreview();
+                            }
+                        }, 1000);
+                    });
+                }
+                
+                // Set up Gutenberg change listener if available
+                if (typeof wp !== 'undefined' && wp.data) {
+                    var previousContent = '';
+                    var checkGutenbergChanges = setInterval(function() {
+                        if (wp.data.select('core/editor')) {
+                            var currentContent = wp.data.select('core/editor').getEditedPostContent();
+                            if (currentContent !== previousContent) {
+                                previousContent = currentContent;
+                                clearTimeout(self.contentRefreshTimeout);
+                                self.contentRefreshTimeout = setTimeout(function() {
+                                    if ($('.contentcraft-tab-button[data-tab="enhance"]').hasClass('active')) {
+                                        self.loadCurrentContentPreview();
+                                    }
+                                }, 1000);
+                            }
+                        }
+                    }, 2000);
+                    
+                    // Store interval ID for cleanup if needed
+                    self.gutenbergWatcher = checkGutenbergChanges;
+                }
+            }, 3000);
         },
         
         switchTab: function(tab) {
@@ -106,6 +175,12 @@
             
             $('[data-tab="' + tab + '"]').addClass('active');
             $('#' + tab + '-tab').addClass('active');
+            
+            // Refresh content when switching to enhance tab
+            if (tab === 'enhance') {
+                this.currentContent = this.getCurrentContent();
+                this.loadCurrentContentPreview();
+            }
             
             // Load content for generation tab
             if (tab === 'generate') {
@@ -116,24 +191,59 @@
         getCurrentContent: function() {
             var content = '';
             
+            console.log('ContentCraft AI: Getting content from editor type:', this.currentEditor);
+            
             if (this.currentEditor === 'classic') {
                 // Classic Editor - get raw content with HTML
-                if (typeof tinymce !== 'undefined' && tinymce.get('content')) {
+                if (typeof tinymce !== 'undefined' && tinymce.get('content') && !tinymce.get('content').isHidden()) {
                     content = tinymce.get('content').getContent();
+                    console.log('ContentCraft AI: Got content from TinyMCE');
                 } else if ($('#content').length) {
                     content = $('#content').val();
+                    console.log('ContentCraft AI: Got content from textarea #content');
+                } else {
+                    console.log('ContentCraft AI: No TinyMCE or #content textarea found');
                 }
             } else if (this.currentEditor === 'gutenberg') {
                 // Gutenberg Editor - get raw content with block markup
                 if (typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor')) {
                     content = wp.data.select('core/editor').getEditedPostContent();
+                    console.log('ContentCraft AI: Got content from Gutenberg');
+                } else {
+                    console.log('ContentCraft AI: Gutenberg editor not available');
                 }
             }
             
             console.log('ContentCraft AI: Raw content retrieved (length: ' + content.length + ')');
-            console.log('ContentCraft AI: Content preview:', content.substring(0, 200) + '...');
+            if (content.length > 0) {
+                console.log('ContentCraft AI: Content preview:', content.substring(0, 200) + '...');
+            } else {
+                console.log('ContentCraft AI: No content found!');
+            }
             
             return content;
+        },
+        
+        // Debug function to manually check content detection
+        debugContentDetection: function() {
+            console.log('=== ContentCraft AI Debug Info ===');
+            console.log('Editor Type:', this.currentEditor);
+            console.log('TinyMCE Available:', typeof tinymce !== 'undefined');
+            console.log('TinyMCE Content Editor:', typeof tinymce !== 'undefined' && tinymce.get('content'));
+            console.log('jQuery Content Textarea:', $('#content').length > 0);
+            console.log('WordPress Data Available:', typeof wp !== 'undefined' && wp.data);
+            console.log('Gutenberg Editor Available:', typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor'));
+            
+            var content = this.getCurrentContent();
+            console.log('Current Content Length:', content.length);
+            console.log('Current Content Preview:', content.substring(0, 100));
+            console.log('=== End Debug Info ===');
+            
+            return {
+                editorType: this.currentEditor,
+                contentLength: content.length,
+                content: content
+            };
         },
         
         getCurrentTitle: function() {
@@ -219,16 +329,22 @@
         },
         
         loadCurrentContentPreview: function() {
-            var content = this.currentContent;
+            var content = this.getCurrentContent(); // Get fresh content
             var preview = '';
             
-            if (content) {
+            console.log('ContentCraft AI: Loading content preview, content length:', content ? content.length : 0);
+            
+            if (content && content.trim() !== '') {
                 // Show both raw structure info and text preview
                 var textContent = this.stripHtml(content);
                 var hasBlocks = content.includes('<!-- wp:');
                 var hasHtml = content.includes('<') && content.includes('>');
                 
-                preview = '<div class="content-structure-info">';
+                preview = '<div class="content-refresh-controls">';
+                preview += '<button type="button" class="button button-small" onclick="ContentCraftEditor.loadCurrentContentPreview()">Refresh Content</button>';
+                preview += '</div>';
+                
+                preview += '<div class="content-structure-info">';
                 if (hasBlocks) {
                     preview += '<span class="structure-tag">Gutenberg Blocks</span> ';
                 }
@@ -245,7 +361,19 @@
                 preview += '<pre>' + this.escapeHtml(content.substring(0, 200)) + (content.length > 200 ? '...' : '') + '</pre>';
                 preview += '</details>';
             } else {
-                preview = '<div class="no-content">No content available</div>';
+                preview = '<div class="content-refresh-controls">';
+                preview += '<button type="button" class="button button-small" onclick="ContentCraftEditor.loadCurrentContentPreview()">Refresh Content</button>';
+                preview += '</div>';
+                preview += '<div class="no-content">';
+                preview += '<p><strong>No content detected</strong></p>';
+                preview += '<p>If you have content in the editor, try:</p>';
+                preview += '<ul>';
+                preview += '<li>Click the "Refresh Content" button above</li>';
+                preview += '<li>Save your post as draft first</li>';
+                preview += '<li>Switch between Visual/Text editor tabs (Classic Editor)</li>';
+                preview += '<li>Open browser console and run: <code>ContentCraftEditor.debugContentDetection()</code></li>';
+                preview += '</ul>';
+                preview += '</div>';
             }
             
             $('#current-content-preview').html('<div class="content-preview">' + preview + '</div>');
@@ -262,7 +390,7 @@
         enhanceContent: function() {
             var self = this;
             var title = this.getCurrentTitle();
-            var content = this.currentContent;
+            var content = this.getCurrentContent(); // Get fresh content from editor
             var tags = this.getCurrentTags();
             
             console.log('ContentCraft AI: Starting content enhancement');
@@ -271,9 +399,12 @@
             console.log('Tags:', tags);
             
             if (!content || content.trim() === '') {
-                this.showError('No content to enhance');
+                this.showError('No content to enhance. Please add some content to the editor first.');
                 return;
             }
+            
+            // Update the stored content
+            this.currentContent = content;
             
             // Show loading
             $('#enhance-loading').show();
@@ -300,10 +431,15 @@
                 data: ajaxData,
                 success: function(response) {
                     console.log('ContentCraft AI: AJAX response received', response);
-                    if (response.success) {
-                        self.showEnhancedContent(response.data);
-                    } else {
-                        self.showError(response.data.message || 'Enhancement failed');
+                    try {
+                        if (response.success) {
+                            self.showEnhancedContent(response.data);
+                        } else {
+                            self.showError(response.data.message || 'Enhancement failed');
+                        }
+                    } catch (e) {
+                        console.error('ContentCraft AI: Error processing response:', e);
+                        self.showError('Error processing response: ' + e.message);
                     }
                 },
                 error: function(xhr, status, error) {
@@ -346,10 +482,15 @@
                     post_id: this.getPostId()
                 },
                 success: function(response) {
-                    if (response.success) {
-                        self.showGeneratedContent(response.data);
-                    } else {
-                        self.showError(response.data.message || 'Generation failed');
+                    try {
+                        if (response.success) {
+                            self.showGeneratedContent(response.data);
+                        } else {
+                            self.showError(response.data.message || 'Generation failed');
+                        }
+                    } catch (e) {
+                        console.error('ContentCraft AI: Error processing generated response:', e);
+                        self.showError('Error processing response: ' + e.message);
                     }
                 },
                 error: function() {
@@ -401,25 +542,49 @@
         },
         
         showEnhancedContent: function(data) {
-            this.lastEnhancedContent = data.enhanced_content; // Store for later retrieval
-            var preview = this.createContentPreview(data.enhanced_content, 'Enhanced');
-            $('#enhanced-content').html(preview);
-            $('#enhanced-json-response').val(JSON.stringify(data, null, 2));
-            $('#enhanced-content-preview').show();
+            try {
+                // Check if there was a JSON parsing error on the backend
+                if (data.parse_error) {
+                    this.showError('API returned malformed JSON: ' + data.parse_error + '. Using raw response as fallback.');
+                    console.warn('ContentCraft AI: JSON parse error from API:', data.parse_error);
+                    console.warn('ContentCraft AI: Raw response:', data.raw_response);
+                }
+                
+                this.lastEnhancedContent = data.enhanced_content; // Store for later retrieval
+                var preview = this.createContentPreview(data.enhanced_content, 'Enhanced');
+                $('#enhanced-content').html(preview);
+                $('#enhanced-json-response').val(JSON.stringify(data, null, 2));
+                $('#enhanced-content-preview').show();
 
-            // Update other fields
-            this.updateEditorFields(data);
+                // Update other fields
+                this.updateEditorFields(data);
+            } catch (e) {
+                console.error('ContentCraft AI: Error showing enhanced content:', e);
+                this.showError('Error displaying enhanced content: ' + e.message);
+            }
         },
         
         showGeneratedContent: function(data) {
-            this.lastGeneratedContent = data.enhanced_content; // Store for later retrieval
-            var preview = this.createContentPreview(data.enhanced_content, 'Generated');
-            $('#generated-content').html(preview);
-            $('#generated-json-response').val(JSON.stringify(data, null, 2));
-            $('#generated-content-preview').show();
+            try {
+                // Check if there was a JSON parsing error on the backend
+                if (data.parse_error) {
+                    this.showError('API returned malformed JSON: ' + data.parse_error + '. Using raw response as fallback.');
+                    console.warn('ContentCraft AI: JSON parse error from API:', data.parse_error);
+                    console.warn('ContentCraft AI: Raw response:', data.raw_response);
+                }
+                
+                this.lastGeneratedContent = data.enhanced_content; // Store for later retrieval
+                var preview = this.createContentPreview(data.enhanced_content, 'Generated');
+                $('#generated-content').html(preview);
+                $('#generated-json-response').val(JSON.stringify(data, null, 2));
+                $('#generated-content-preview').show();
 
-            // Update other fields
-            this.updateEditorFields(data);
+                // Update other fields
+                this.updateEditorFields(data);
+            } catch (e) {
+                console.error('ContentCraft AI: Error showing generated content:', e);
+                this.showError('Error displaying generated content: ' + e.message);
+            }
         },
 
         showQueryResult: function(result) {
@@ -486,15 +651,21 @@
         },
 
         showInternalLinks: function(links) {
-            var list = $('<ul>');
+            var content = '';
             if (links.length) {
-                links.forEach(function(link) {
-                    list.append('<li><a href="' + link.url + '" target="_blank">' + link.title + '</a></li>');
+                content += '<div class="internal-links-text-format">';
+                content += '<p><strong>Internal Links for AI (Text Format):</strong></p>';
+                content += '<textarea class="contentcraft-textarea" rows="8" style="width: 100%;" readonly>';
+                links.forEach(function(link, index) {
+                    content += (index + 1) + '. Title: ' + link.title + '\n   URL: ' + link.url + '\n\n';
                 });
+                content += '</textarea>';
+                content += '<p class="description">Copy this text format to include in your AI prompts for internal linking suggestions.</p>';
+                content += '</div>';
             } else {
-                list.append('<li>' + 'No similar posts found.' + '</li>');
+                content = '<p>No similar posts found.</p>';
             }
-            $('#internal-links-list').html(list);
+            $('#internal-links-list').html(content);
             $('#internal-links-result').show();
         },
 
@@ -543,39 +714,82 @@
         
         acceptEnhancedContent: function() {
             try {
-                var jsonResponse = JSON.parse($('#enhanced-json-response').val());
+                var jsonText = $('#enhanced-json-response').val();
+                if (!jsonText || jsonText.trim() === '') {
+                    this.showError('No JSON response to parse.');
+                    return;
+                }
+                
+                var jsonResponse = JSON.parse(jsonText);
                 var content = jsonResponse.enhanced_content || '';
+                
+                if (!content || content.trim() === '') {
+                    this.showError('No enhanced content found in the JSON response.');
+                    return;
+                }
+                
                 console.log('ContentCraft AI: Accepting enhanced content (length: ' + content.length + ')');
                 this.setContent(content);
                 this.updateEditorFields(jsonResponse);
+                $('#enhanced-content-preview').hide();
             } catch (e) {
-                this.showError('Invalid JSON in the response textarea.');
+                console.error('ContentCraft AI: JSON parse error:', e);
+                this.showError('Invalid JSON in the response textarea. Please check the format: ' + e.message);
             }
         },
         
         acceptGeneratedContent: function() {
             try {
-                var jsonResponse = JSON.parse($('#generated-json-response').val());
+                var jsonText = $('#generated-json-response').val();
+                if (!jsonText || jsonText.trim() === '') {
+                    this.showError('No JSON response to parse.');
+                    return;
+                }
+                
+                var jsonResponse = JSON.parse(jsonText);
                 var content = jsonResponse.enhanced_content || '';
+                
+                if (!content || content.trim() === '') {
+                    this.showError('No generated content found in the JSON response.');
+                    return;
+                }
+                
                 console.log('ContentCraft AI: Accepting generated content (length: ' + content.length + ')');
                 this.setContent(content);
                 this.updateEditorFields(jsonResponse);
+                $('#generated-content-preview').hide();
             } catch (e) {
-                this.showError('Invalid JSON in the response textarea.');
+                console.error('ContentCraft AI: JSON parse error:', e);
+                this.showError('Invalid JSON in the response textarea. Please check the format: ' + e.message);
             }
         },
 
         parseAndInsertJson: function() {
             try {
-                var jsonResponse = JSON.parse($('#parse-json-textarea').val());
-                var content = jsonResponse.enhanced_content || '';
-                if (content) {
-                    this.setContent(content);
-                } else {
-                    this.showError('The JSON does not contain an "enhanced_content" field.');
+                var jsonText = $('#parse-json-textarea').val();
+                if (!jsonText || jsonText.trim() === '') {
+                    this.showError('Please paste JSON content first.');
+                    return;
                 }
+                
+                var jsonResponse = JSON.parse(jsonText);
+                var content = jsonResponse.enhanced_content || '';
+                
+                if (!content || content.trim() === '') {
+                    this.showError('The JSON does not contain a valid "enhanced_content" field.');
+                    return;
+                }
+                
+                console.log('ContentCraft AI: Parsing and inserting JSON content (length: ' + content.length + ')');
+                this.setContent(content);
+                this.updateEditorFields(jsonResponse);
+                
+                // Clear the textarea after successful insertion
+                $('#parse-json-textarea').val('');
+                this.showError('Content successfully inserted from JSON!', 'success');
             } catch (e) {
-                this.showError('Invalid JSON provided.');
+                console.error('ContentCraft AI: JSON parse error:', e);
+                this.showError('Invalid JSON provided. Please check the format: ' + e.message);
             }
         },
 
@@ -613,7 +827,6 @@
         },
 
         loadDefaultPrompts: function() {
-            var self = this;
             $.ajax({
                 url: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.ajax_url : ajaxurl,
                 type: 'POST',
@@ -650,6 +863,7 @@
         resetInterface: function() {
             $('.contentcraft-result').hide();
             $('.contentcraft-loading').hide();
+            $('.contentcraft-message').remove(); // Clear any error/success messages
             $('#enhanced-content, #generated-content').empty();
             $('#generation-title, #generation-tags').val('');
             $('#generation-length').val('medium');
@@ -660,13 +874,15 @@
             this.switchTab('enhance');
         },
         
-        showError: function(message) {
-            var errorHtml = '<div class="contentcraft-error notice notice-error is-dismissible"><p>' + this.escapeHtml(message) + '</p></div>';
+        showError: function(message, type) {
+            type = type || 'error';
+            var noticeClass = type === 'success' ? 'notice-success' : 'notice-error';
+            var messageHtml = '<div class="contentcraft-message notice ' + noticeClass + ' is-dismissible"><p>' + this.escapeHtml(message) + '</p></div>';
             
-            $('.contentcraft-meta-box-content').prepend(errorHtml);
+            $('.contentcraft-meta-box-content').prepend(messageHtml);
             
             setTimeout(function() {
-                $('.contentcraft-error').fadeOut(function() {
+                $('.contentcraft-message').fadeOut(function() {
                     $(this).remove();
                 });
             }, 5000);
@@ -691,12 +907,12 @@
         }
     };
     
-    $(document).ready(function() {
+    wp.domReady(function() {
         if ($('#contentcraft_ai_meta_box').length) {
             ContentCraftEditor.init();
         }
     });
     
-    window.ContentCraftEditor = ContentEditor;
+    window.ContentCraftEditor = ContentCraftEditor;
     
 })(jQuery);
