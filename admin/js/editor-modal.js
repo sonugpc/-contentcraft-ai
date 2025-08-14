@@ -435,7 +435,11 @@
                         if (response.success) {
                             self.showEnhancedContent(response.data);
                         } else {
-                            self.showError(response.data.message || 'Enhancement failed');
+                            var errorMessage = 'Enhancement failed. Please check the logs for details.';
+                            if (response.data && response.data.message) {
+                                errorMessage = response.data.message;
+                            }
+                            self.showError(errorMessage);
                         }
                     } catch (e) {
                         console.error('ContentCraft AI: Error processing response:', e);
@@ -444,7 +448,11 @@
                 },
                 error: function(xhr, status, error) {
                     console.error('ContentCraft AI: AJAX error', xhr, status, error);
-                    self.showError('Request failed. Please try again. Error: ' + error);
+                    var errorMessage = 'Request failed. Please try again. Error: ' + error;
+                    if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                        errorMessage = xhr.responseJSON.data.message;
+                    }
+                    self.showError(errorMessage);
                 },
                 complete: function() {
                     $('#enhance-loading').hide();
@@ -715,16 +723,19 @@
         acceptEnhancedContent: function() {
             try {
                 var jsonText = $('#enhanced-json-response').val();
+                console.log('ContentCraft AI: JSON text from textarea:', jsonText);
                 if (!jsonText || jsonText.trim() === '') {
                     this.showError('No JSON response to parse.');
                     return;
                 }
                 
                 var jsonResponse = JSON.parse(jsonText);
+                console.log('ContentCraft AI: Parsed JSON response:', jsonResponse);
                 var content = jsonResponse.enhanced_content || '';
                 
                 if (!content || content.trim() === '') {
                     this.showError('No enhanced content found in the JSON response.');
+                    console.log('ContentCraft AI: No enhanced_content in response.');
                     return;
                 }
                 
@@ -816,12 +827,12 @@
             }
 
             // Update Rank Math fields
-            if (typeof rankMathEditor !== 'undefined') {
+            if (typeof rankMathEditor !== 'undefined' && typeof rankMathEditor.updateField === 'function') {
                 if (data.meta_description) {
-                    rankMathEditor.updateData('description', data.meta_description);
+                    rankMathEditor.updateField('description', data.meta_description);
                 }
                 if (data.focus_keyword) {
-                    rankMathEditor.updateData('focusKeyword', data.focus_keyword);
+                    rankMathEditor.updateField('focusKeyword', data.focus_keyword);
                 }
             }
         },

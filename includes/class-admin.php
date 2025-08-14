@@ -317,29 +317,39 @@ class ContentCraft_AI_Admin {
      */
     public function ajax_enhance_content() {
         check_ajax_referer('contentcraft_ai_nonce', 'nonce');
-
+    
         if (!current_user_can('edit_posts')) {
-            wp_send_json_error(array('message' => __('Insufficient permissions.', 'contentcraft-ai')));
+            wp_send_json_error(['message' => __('Insufficient permissions.', 'contentcraft-ai')], 403);
         }
-
+    
         $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
         $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
         $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
         $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
         $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
-
+    
         $api_handler = new ContentCraft_AI_API_Handler();
         $result = $api_handler->enhance_content($title, $content, $tags, $prompt);
-
+    
         if (is_wp_error($result)) {
-            wp_send_json_error(array('message' => $result->get_error_message()));
+            $error_code = $result->get_error_code();
+            $error_message = $result->get_error_message();
+            $status_code = 400;
+    
+            if ($error_code === 'rate_limit_exceeded') {
+                $status_code = 429;
+            } elseif ($error_code === 'no_api_key') {
+                $status_code = 401;
+            }
+    
+            wp_send_json_error(['message' => $error_message, 'code' => $error_code], $status_code);
         }
-
+    
         if ($post_id > 0 && !empty($result['enhanced_content'])) {
             $content_processor = new ContentCraft_AI_Content_Processor();
             $result['enhanced_content'] = $content_processor->add_internal_links($result['enhanced_content'], $post_id);
         }
-
+    
         wp_send_json_success($result);
     }
 
