@@ -86,7 +86,10 @@ class ContentCraft_AI_Editor {
     public function add_classic_editor_button() {
         global $typenow;
         
-        if (!in_array($typenow, array('post', 'page'))) {
+        $settings = new ContentCraft_AI_Settings();
+        $enabled_post_types = $settings->get_option('enabled_post_types', array('post', 'page'));
+
+        if (!in_array($typenow, $enabled_post_types)) {
             return;
         }
         
@@ -100,11 +103,14 @@ class ContentCraft_AI_Editor {
      * Render modal template
      */
     public function add_meta_box() {
+        $settings = new ContentCraft_AI_Settings();
+        $enabled_post_types = $settings->get_option('enabled_post_types', array('post', 'page'));
+
         add_meta_box(
             'contentcraft_ai_meta_box',
             __('ContentCraft AI', 'contentcraft-ai'),
             array($this, 'render_meta_box_content'),
-            array('post', 'page'),
+            $enabled_post_types,
             'normal',
             'high'
         );

@@ -151,6 +151,22 @@ class ContentCraft_AI_Admin {
             'contentcraft_ai_advanced_section'
         );
 
+        // Post Types Section
+        add_settings_section(
+            'contentcraft_ai_post_types_section',
+            __('Enable on Post Types', 'contentcraft-ai'),
+            array($this, 'post_types_section_callback'),
+            'contentcraft-ai-settings'
+        );
+
+        add_settings_field(
+            'enabled_post_types',
+            __('Post Types', 'contentcraft-ai'),
+            array($this, 'enabled_post_types_callback'),
+            'contentcraft-ai-settings',
+            'contentcraft_ai_post_types_section'
+        );
+
         // Schema Display Section
         add_settings_section(
             'contentcraft_ai_schema_section',
@@ -205,6 +221,10 @@ class ContentCraft_AI_Admin {
             
         $validated['enable_logging'] = isset($settings['enable_logging']) ? 
             (bool) $settings['enable_logging'] : true;
+
+        $validated['enabled_post_types'] = isset($settings['enabled_post_types']) && is_array($settings['enabled_post_types']) ?
+            array_map('sanitize_text_field', $settings['enabled_post_types']) :
+            array('post', 'page');
         
         return $validated;
     }
@@ -425,8 +445,11 @@ class ContentCraft_AI_Admin {
             wp_send_json_error(['message' => __('Invalid post ID.', 'contentcraft-ai')]);
         }
 
+        $settings = new ContentCraft_AI_Settings();
+        $enabled_post_types = $settings->get_option('enabled_post_types', array('post', 'page'));
+
         $args = [
-            'post_type' => 'post',
+            'post_type' => $enabled_post_types,
             'post_status' => 'publish',
             'posts_per_page' => 10,
             'post__not_in' => [$post_id],
@@ -515,6 +538,10 @@ class ContentCraft_AI_Admin {
         echo '<p>' . __('Advanced configuration options.', 'contentcraft-ai') . '</p>';
     }
 
+    public function post_types_section_callback() {
+        echo '<p>' . __('Select the post types where you want to enable ContentCraft AI.', 'contentcraft-ai') . '</p>';
+    }
+
     public function schema_section_callback() {
         echo '<p>' . __('This is the expected JSON structure for the AI response. Use this as a reference when crafting your prompts.', 'contentcraft-ai') . '</p>';
     }
@@ -567,6 +594,18 @@ class ContentCraft_AI_Admin {
         $enable_logging = $this->settings->get_option('enable_logging', true);
         echo '<input type="checkbox" name="contentcraft_ai_settings[enable_logging]" value="1" ' . checked($enable_logging, true, false) . ' />';
         echo '<label>' . __('Enable error logging for debugging.', 'contentcraft-ai') . '</label>';
+    }
+
+    public function enabled_post_types_callback() {
+        $post_types = get_post_types(array('public' => true), 'objects');
+        $enabled_post_types = $this->settings->get_option('enabled_post_types', array('post', 'page'));
+
+        foreach ($post_types as $post_type) {
+            echo '<label style="margin-right: 15px;">';
+            echo '<input type="checkbox" name="contentcraft_ai_settings[enabled_post_types][]" value="' . esc_attr($post_type->name) . '" ' . checked(in_array($post_type->name, $enabled_post_types), true, false) . ' />';
+            echo esc_html($post_type->labels->name);
+            echo '</label>';
+        }
     }
 
     public function schema_display_callback() {
