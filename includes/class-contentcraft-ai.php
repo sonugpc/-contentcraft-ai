@@ -39,6 +39,11 @@ class ContentCraft_AI {
      * Content processor instance
      */
     public $content_processor;
+
+    /**
+     * Chat instance
+     */
+    public $chat;
     
     /**
      * Get plugin instance
@@ -76,6 +81,8 @@ class ContentCraft_AI {
         require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-api-handler.php';
         require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-content-processor.php';
         
+        require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-chat.php';
+        
         if (is_admin()) {
             require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-admin.php';
             require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-editor.php';
@@ -103,6 +110,10 @@ class ContentCraft_AI {
         // Initialize content processor
         $this->content_processor = new ContentCraft_AI_Content_Processor();
         
+        // Initialize admin and editor
+        // Initialize chat
+        $this->chat = new ContentCraft_AI_Chat();
+
         // Initialize admin and editor
         if (is_admin()) {
             $this->admin = new ContentCraft_AI_Admin();

@@ -26,6 +26,9 @@ if (!defined('ABSPATH')) {
                 <button class="contentcraft-tab-button" data-tab="parse-json">
                     <?php _e('Parse JSON', 'contentcraft-ai'); ?>
                 </button>
+                <button class="contentcraft-tab-button" data-tab="chat">
+                    <?php _e('Chat', 'contentcraft-ai'); ?>
+                </button>
             </div>
             
             <div id="enhance-tab" class="contentcraft-tab-content active">
@@ -198,6 +201,17 @@ if (!defined('ABSPATH')) {
                     <button id="parse-json-btn" class="button button-primary">
                         <?php _e('Parse and Insert Content', 'contentcraft-ai'); ?>
                     </button>
+                </div>
+            </div>
+
+            <div id="chat-tab" class="contentcraft-tab-content">
+                <h3><?php _e('Chat with AI', 'contentcraft-ai'); ?></h3>
+                <div id="contentcraft-ai-chat-container">
+                    <div id="contentcraft-ai-chat-log"></div>
+                    <div id="contentcraft-ai-chat-input">
+                        <textarea id="contentcraft-ai-chat-message" placeholder="<?php esc_attr_e('Ask a question...', 'contentcraft-ai'); ?>"></textarea>
+                        <button id="contentcraft-ai-chat-send" class="button button-primary"><?php esc_html_e('Send', 'contentcraft-ai'); ?></button>
+                    </div>
                 </div>
             </div>
 </div>

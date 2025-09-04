@@ -224,7 +224,7 @@ class ContentCraft_AI_Admin {
 
         $validated['enabled_post_types'] = isset($settings['enabled_post_types']) && is_array($settings['enabled_post_types']) ?
             array_map('sanitize_text_field', $settings['enabled_post_types']) :
-            array('post', 'page');
+            array_keys(get_post_types(['public' => true]));
         
         return $validated;
     }
@@ -292,6 +292,30 @@ class ContentCraft_AI_Admin {
             wp_localize_script('contentcraft-ai-editor-modal', 'contentcraft_ai_ajax', array(
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('contentcraft_ai_nonce')
+            ));
+
+            // Enqueue chat styles
+            wp_enqueue_style(
+                'contentcraft-ai-chat',
+                CONTENTCRAFT_AI_PLUGIN_URL . 'assets/css/chat.css',
+                array(),
+                CONTENTCRAFT_AI_VERSION
+            );
+
+            // Enqueue chat scripts
+            wp_enqueue_script(
+                'contentcraft-ai-chat',
+                CONTENTCRAFT_AI_PLUGIN_URL . 'assets/js/chat.js',
+                array('jquery'),
+                CONTENTCRAFT_AI_VERSION,
+                true
+            );
+
+            // Localize chat script
+            wp_localize_script('contentcraft-ai-chat', 'contentcraft_ai_chat_ajax', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('contentcraft_ai_chat_nonce'),
+                'post_id' => get_the_ID()
             ));
         }
     }
