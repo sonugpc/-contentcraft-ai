@@ -1,8 +1,30 @@
+.contentcraft-chat-wrapper {
+    display: flex;
+    height: 400px;
+}
+
+#contentcraft-ai-saved-prompts-container {
+    width: 200px;
+    border-right: 1px solid #ccd0d4;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+#contentcraft-ai-saved-prompts-list .prompt-item {
+    padding: 5px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+#contentcraft-ai-saved-prompts-list .prompt-item:hover {
+    background-color: #f0f0f0;
+}
+
 #contentcraft-ai-chat-container {
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
-    height: 300px;
-    border: 1px solid #ccd0d4;
+    height: 100%;
 }
 
 #contentcraft-ai-chat-log {
@@ -12,9 +34,15 @@
     border-bottom: 1px solid #ccd0d4;
 }
 
-#contentcraft-ai-chat-input {
-    display: flex;
+#contentcraft-ai-chat-input-area {
     padding: 10px;
+}
+
+#contentcraft-ai-chat-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
 }
 
 #contentcraft-ai-chat-message {

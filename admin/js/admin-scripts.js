@@ -15,14 +15,35 @@
         bindEvents: function() {
             // Test API connection
             $(document).on('click', '#test-api-connection', this.testApiConnection);
-            
-            // Load usage statistics
-            this.loadUsageStats();
         },
         
         initializeComponents: function() {
             // Initialize any admin components here
             this.initializeTooltips();
+            this.initializeProviderSettings();
+        },
+
+        initializeProviderSettings: function() {
+            var providerSelect = $('#api_provider');
+            var geminiSettings = $('input[name="contentcraft_ai_settings[api_key]"]').closest('tr');
+            var cloudflareAccountIdSettings = $('input[name="contentcraft_ai_settings[cloudflare_account_id]"]').closest('tr');
+            var cloudflareApiKeySettings = $('input[name="contentcraft_ai_settings[cloudflare_api_key]"]').closest('tr');
+
+            function toggleSettings() {
+                var provider = providerSelect.val();
+                if (provider === 'gemini') {
+                    geminiSettings.show();
+                    cloudflareAccountIdSettings.hide();
+                    cloudflareApiKeySettings.hide();
+                } else if (provider === 'cloudflare') {
+                    geminiSettings.hide();
+                    cloudflareAccountIdSettings.show();
+                    cloudflareApiKeySettings.show();
+                }
+            }
+
+            toggleSettings();
+            providerSelect.on('change', toggleSettings);
         },
         
         initializeTooltips: function() {
@@ -67,38 +88,6 @@
             });
         },
         
-        loadUsageStats: function() {
-            var $container = $('#usage-stats-container');
-            
-            if (!$container.length) {
-                return;
-            }
-            
-            $.ajax({
-                url: contentcraft_ai_admin.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'contentcraft_get_usage_stats',
-                    nonce: contentcraft_ai_admin.nonce
-                },
-                success: function(response) {
-                    if (response.success) {
-                        var stats = response.data;
-                        var html = '<div class="usage-stats">';
-                        html += '<div class="stat-item"><strong>Requests Used:</strong> ' + stats.current_usage + '</div>';
-                        html += '<div class="stat-item"><strong>Rate Limit:</strong> ' + stats.rate_limit + '</div>';
-                        html += '<div class="stat-item"><strong>Remaining:</strong> ' + stats.remaining + '</div>';
-                        html += '</div>';
-                        
-                        $container.html(html);
-                    }
-                },
-                error: function() {
-                    $container.html('<p>Failed to load usage statistics.</p>');
-                }
-            });
-        },
-        
         showNotice: function(message, type) {
             type = type || 'info';
             
@@ -122,13 +111,6 @@
             var apiKey = $('input[name="contentcraft_ai_settings[api_key]"]').val();
             if (!apiKey || apiKey.trim() === '') {
                 errors.push('API key is required');
-                isValid = false;
-            }
-            
-            // Validate max tokens
-            var maxTokens = parseInt($('input[name="contentcraft_ai_settings[max_tokens]"]').val());
-            if (isNaN(maxTokens) || maxTokens < 100 || maxTokens > 4000) {
-                errors.push('Max tokens must be between 100 and 4000');
                 isValid = false;
             }
             

@@ -1,6 +1,6 @@
 <?php
 /**
- * API Handler class for ContentCraft AI
+ * Gemini API Handler class for ContentCraft AI
  */
 
 // Prevent direct access
@@ -8,12 +8,14 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class ContentCraft_AI_API_Handler {
+require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/interface-api-handler.php';
+
+class ContentCraft_AI_Gemini_Handler implements ContentCraft_AI_API_Handler_Interface {
     
     /**
      * Gemini API base URL
      */
-    private $api_base_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
+    private $api_base_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
     
     /**
      * Settings instance
@@ -127,11 +129,6 @@ class ContentCraft_AI_API_Handler {
             return new WP_Error('no_api_key', __('API key is not configured.', 'contentcraft-ai'));
         }
         
-        // Check rate limiting
-        if (!$this->check_rate_limit()) {
-            return new WP_Error('rate_limit_exceeded', __('Rate limit exceeded. Please try again later.', 'contentcraft-ai'));
-        }
-        
         // Prepare request
         $request_data = array(
             'contents' => array(
@@ -144,7 +141,6 @@ class ContentCraft_AI_API_Handler {
                 )
             ),
             'generationConfig' => array(
-                'maxOutputTokens' => $this->get_settings()->get_option('max_tokens', 2000),
                 'temperature' => $this->get_settings()->get_option('temperature', 0.7)
             )
         );
@@ -162,9 +158,6 @@ class ContentCraft_AI_API_Handler {
             'timeout' => 120,
             'sslverify' => true
         ));
-        
-        // Update rate limit counter
-        $this->update_rate_limit();
         
         // Handle response
         if (is_wp_error($response)) {
@@ -294,34 +287,6 @@ class ContentCraft_AI_API_Handler {
         return $content;
     }
     
-    /**
-     * Check rate limit
-     */
-    private function check_rate_limit() {
-        $rate_limit = $this->get_settings()->get_option('rate_limit', 10);
-        $current_count = get_transient('contentcraft_ai_rate_limit_count');
-        
-        if (false === $current_count) {
-            return true;
-        }
-        
-        return intval($current_count) < $rate_limit;
-    }
-    
-    /**
-     * Update rate limit counter
-     */
-    private function update_rate_limit() {
-        $current_count = get_transient('contentcraft_ai_rate_limit_count');
-        
-        if (false === $current_count) {
-            $current_count = 0;
-        }
-        
-        $current_count++;
-        
-        set_transient('contentcraft_ai_rate_limit_count', $current_count, HOUR_IN_SECONDS);
-    }
     
     /**
      * Log error
@@ -349,13 +314,10 @@ class ContentCraft_AI_API_Handler {
      * Get API usage statistics
      */
     public function get_usage_stats() {
-        $current_count = get_transient('contentcraft_ai_rate_limit_count');
-        $rate_limit = $this->get_settings()->get_option('rate_limit', 10);
-        
         return array(
-            'current_usage' => $current_count ? intval($current_count) : 0,
-            'rate_limit' => $rate_limit,
-            'remaining' => $rate_limit - ($current_count ? intval($current_count) : 0)
+            'current_usage' => 'N/A',
+            'rate_limit' => 'N/A',
+            'remaining' => 'N/A'
         );
     }
 }

@@ -36,6 +36,7 @@ class ContentCraft_AI_Chat {
 
         $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
         $message = isset($_POST['message']) ? sanitize_textarea_field($_POST['message']) : '';
+        $history = isset($_POST['history']) ? json_decode(stripslashes($_POST['history']), true) : [];
 
         if (empty($message)) {
             wp_send_json_error(['message' => __('Message cannot be empty.', 'contentcraft-ai')], 400);
@@ -49,9 +50,14 @@ class ContentCraft_AI_Chat {
         $post_content = $post->post_content;
         $post_title = $post->post_title;
 
-        $prompt = "Based on the following content:\n\nTitle: $post_title\n\nContent: $post_content\n\nQuestion: $message";
+        $prompt = "You are a helpful assistant. The user is asking questions about the following content:\n\nTitle: $post_title\n\nContent: $post_content\n\n";
 
-        $api_handler = new ContentCraft_AI_API_Handler();
+        foreach ($history as $item) {
+            $prompt .= $item['role'] . ": " . $item['content'] . "\n";
+        }
+        $prompt .= "user: " . $message;
+
+        $api_handler = ContentCraft_AI_API_Handler_Factory::get_handler();
         $result = $api_handler->general_query($prompt);
 
         if (is_wp_error($result)) {

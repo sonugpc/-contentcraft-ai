@@ -43,7 +43,7 @@ function contentcraft_ai_activate() {
         'api_key' => '',
         'enhancement_prompt' => 'Enhance this content: Title: {post_title}, Content: {post_content}, Tags: {tags}',
         'generation_prompt' => 'Generate content for: Title: {post_title}, Tags: {tags}',
-        'max_tokens' => 2000,
+        'max_tokens' => 200000,
         'temperature' => 0.7,
         'enable_logging' => true
     ];

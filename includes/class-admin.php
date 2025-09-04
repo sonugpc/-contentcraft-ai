@@ -31,7 +31,6 @@ class ContentCraft_AI_Admin {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_ajax_contentcraft_test_api_connection', array($this, 'ajax_test_api_connection'));
-        add_action('wp_ajax_contentcraft_get_usage_stats', array($this, 'ajax_get_usage_stats'));
         add_action('wp_ajax_contentcraft_enhance_content', array($this, 'ajax_enhance_content'));
         add_action('wp_ajax_contentcraft_generate_content', array($this, 'ajax_generate_content'));
         add_action('wp_ajax_contentcraft_general_query', array($this, 'ajax_general_query'));
@@ -63,10 +62,26 @@ class ContentCraft_AI_Admin {
             array($this, 'sanitize_settings')
         );
         
-        // API Settings Section
+        // API Provider Section
         add_settings_section(
-            'contentcraft_ai_api_section',
-            __('API Configuration', 'contentcraft-ai'),
+            'contentcraft_ai_api_provider_section',
+            __('API Provider', 'contentcraft-ai'),
+            array($this, 'api_provider_section_callback'),
+            'contentcraft-ai-settings'
+        );
+
+        add_settings_field(
+            'api_provider',
+            __('Select Provider', 'contentcraft-ai'),
+            array($this, 'api_provider_callback'),
+            'contentcraft-ai-settings',
+            'contentcraft_ai_api_provider_section'
+        );
+
+        // Gemini API Settings Section
+        add_settings_section(
+            'contentcraft_ai_gemini_api_section',
+            __('Gemini API Configuration', 'contentcraft-ai'),
             array($this, 'api_section_callback'),
             'contentcraft-ai-settings'
         );
@@ -76,7 +91,31 @@ class ContentCraft_AI_Admin {
             __('Gemini API Key', 'contentcraft-ai'),
             array($this, 'api_key_callback'),
             'contentcraft-ai-settings',
-            'contentcraft_ai_api_section'
+            'contentcraft_ai_gemini_api_section'
+        );
+
+        // Cloudflare API Settings Section
+        add_settings_section(
+            'contentcraft_ai_cloudflare_api_section',
+            __('Cloudflare AI Configuration', 'contentcraft-ai'),
+            array($this, 'cloudflare_api_section_callback'),
+            'contentcraft-ai-settings'
+        );
+
+        add_settings_field(
+            'cloudflare_account_id',
+            __('Cloudflare Account ID', 'contentcraft-ai'),
+            array($this, 'cloudflare_account_id_callback'),
+            'contentcraft-ai-settings',
+            'contentcraft_ai_cloudflare_api_section'
+        );
+
+        add_settings_field(
+            'cloudflare_api_key',
+            __('Cloudflare API Key', 'contentcraft-ai'),
+            array($this, 'cloudflare_api_key_callback'),
+            'contentcraft-ai-settings',
+            'contentcraft_ai_cloudflare_api_section'
         );
         
         // Prompt Templates Section
@@ -112,25 +151,9 @@ class ContentCraft_AI_Admin {
         );
         
         add_settings_field(
-            'max_tokens',
-            __('Max Tokens', 'contentcraft-ai'),
-            array($this, 'max_tokens_callback'),
-            'contentcraft-ai-settings',
-            'contentcraft_ai_api_settings_section'
-        );
-        
-        add_settings_field(
             'temperature',
             __('Temperature', 'contentcraft-ai'),
             array($this, 'temperature_callback'),
-            'contentcraft-ai-settings',
-            'contentcraft_ai_api_settings_section'
-        );
-        
-        add_settings_field(
-            'rate_limit',
-            __('Rate Limit (per hour)', 'contentcraft-ai'),
-            array($this, 'rate_limit_callback'),
             'contentcraft-ai-settings',
             'contentcraft_ai_api_settings_section'
         );
@@ -210,14 +233,8 @@ class ContentCraft_AI_Admin {
             sanitize_textarea_field($settings['generation_prompt']) : 
             'Generate content for: {post_title}';
             
-        $validated['max_tokens'] = isset($settings['max_tokens']) ? 
-            absint($settings['max_tokens']) : 2000;
-            
         $validated['temperature'] = isset($settings['temperature']) ? 
             floatval($settings['temperature']) : 0.7;
-            
-        $validated['rate_limit'] = isset($settings['rate_limit']) ? 
-            absint($settings['rate_limit']) : 10;
             
         $validated['enable_logging'] = isset($settings['enable_logging']) ? 
             (bool) $settings['enable_logging'] : true;
@@ -225,6 +242,10 @@ class ContentCraft_AI_Admin {
         $validated['enabled_post_types'] = isset($settings['enabled_post_types']) && is_array($settings['enabled_post_types']) ?
             array_map('sanitize_text_field', $settings['enabled_post_types']) :
             array_keys(get_post_types(['public' => true]));
+
+        $validated['api_provider'] = isset($settings['api_provider']) ? sanitize_text_field($settings['api_provider']) : 'gemini';
+        $validated['cloudflare_account_id'] = isset($settings['cloudflare_account_id']) ? sanitize_text_field($settings['cloudflare_account_id']) : '';
+        $validated['cloudflare_api_key'] = isset($settings['cloudflare_api_key']) ? sanitize_text_field($settings['cloudflare_api_key']) : '';
         
         return $validated;
     }
@@ -330,7 +351,7 @@ class ContentCraft_AI_Admin {
             wp_send_json_error(array('message' => __('Insufficient permissions.', 'contentcraft-ai')));
         }
         
-        $api_handler = new ContentCraft_AI_API_Handler();
+        $api_handler = ContentCraft_AI_API_Handler_Factory::get_handler();
         $result = $api_handler->test_connection();
         
         if (is_wp_error($result)) {
@@ -338,22 +359,6 @@ class ContentCraft_AI_Admin {
         }
         
         wp_send_json_success(array('message' => __('API connection successful!', 'contentcraft-ai')));
-    }
-    
-    /**
-     * AJAX get usage statistics
-     */
-    public function ajax_get_usage_stats() {
-        check_ajax_referer('contentcraft_ai_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Insufficient permissions.', 'contentcraft-ai')));
-        }
-        
-        $api_handler = new ContentCraft_AI_API_Handler();
-        $stats = $api_handler->get_usage_stats();
-        
-        wp_send_json_success($stats);
     }
 
     /**
@@ -372,7 +377,7 @@ class ContentCraft_AI_Admin {
         $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
         $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
     
-        $api_handler = new ContentCraft_AI_API_Handler();
+        $api_handler = ContentCraft_AI_API_Handler_Factory::get_handler();
         $result = $api_handler->enhance_content($title, $content, $tags, $prompt);
     
         if (is_wp_error($result)) {
@@ -413,7 +418,7 @@ class ContentCraft_AI_Admin {
         $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
         $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
 
-        $api_handler = new ContentCraft_AI_API_Handler();
+        $api_handler = ContentCraft_AI_API_Handler_Factory::get_handler();
         $result = $api_handler->generate_content($title, $tags, $length, $prompt);
 
         if (is_wp_error($result)) {
@@ -440,7 +445,7 @@ class ContentCraft_AI_Admin {
 
         $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
 
-        $api_handler = new ContentCraft_AI_API_Handler();
+        $api_handler = ContentCraft_AI_API_Handler_Factory::get_handler();
         $result = $api_handler->general_query($prompt);
 
         if (is_wp_error($result)) {
@@ -534,19 +539,39 @@ class ContentCraft_AI_Admin {
         $screen = get_current_screen();
         
         if ($screen->id === 'settings_page_contentcraft-ai-settings') {
-            $api_key = $this->settings->get_api_key();
-            
-            if (empty($api_key)) {
-                echo '<div class="notice notice-warning"><p>';
-                echo __('Please configure your Gemini API key to start using ContentCraft AI.', 'contentcraft-ai');
-                echo '</p></div>';
+            $settings = get_option('contentcraft_ai_settings', []);
+            $provider = isset($settings['api_provider']) ? $settings['api_provider'] : 'gemini';
+
+            if ($provider === 'gemini') {
+                $api_key = isset($settings['api_key']) ? $settings['api_key'] : '';
+                if (empty($api_key)) {
+                    echo '<div class="notice notice-warning"><p>';
+                    echo __('Please configure your Gemini API key to start using ContentCraft AI.', 'contentcraft-ai');
+                    echo '</p></div>';
+                }
+            } elseif ($provider === 'cloudflare') {
+                $account_id = isset($settings['cloudflare_account_id']) ? $settings['cloudflare_account_id'] : '';
+                $api_key = isset($settings['cloudflare_api_key']) ? $settings['cloudflare_api_key'] : '';
+                if (empty($account_id) || empty($api_key)) {
+                    echo '<div class="notice notice-warning"><p>';
+                    echo __('Please configure your Cloudflare Account ID and API Key to start using ContentCraft AI.', 'contentcraft-ai');
+                    echo '</p></div>';
+                }
             }
         }
     }
     
     // Section callbacks
+    public function api_provider_section_callback() {
+        echo '<p>' . __('Select your preferred AI provider.', 'contentcraft-ai') . '</p>';
+    }
+
     public function api_section_callback() {
         echo '<p>' . __('Configure your Gemini API connection settings.', 'contentcraft-ai') . '</p>';
+    }
+
+    public function cloudflare_api_section_callback() {
+        echo '<p>' . __('Configure your Cloudflare AI connection settings.', 'contentcraft-ai') . '</p>';
     }
     
     public function prompts_section_callback() {
@@ -596,28 +621,36 @@ class ContentCraft_AI_Admin {
         echo '<p class="description">' . __('Template for generating new content.', 'contentcraft-ai') . '</p>';
     }
     
-    public function max_tokens_callback() {
-        $max_tokens = $this->settings->get_option('max_tokens', 2000);
-        echo '<input type="number" name="contentcraft_ai_settings[max_tokens]" value="' . esc_attr($max_tokens) . '" min="100" max="4000" />';
-        echo '<p class="description">' . __('Maximum number of tokens to generate (100-4000).', 'contentcraft-ai') . '</p>';
-    }
-    
     public function temperature_callback() {
         $temperature = $this->settings->get_option('temperature', 0.7);
         echo '<input type="number" name="contentcraft_ai_settings[temperature]" value="' . esc_attr($temperature) . '" min="0" max="1" step="0.1" />';
         echo '<p class="description">' . __('Controls randomness in generation (0.0-1.0). Higher values make output more random.', 'contentcraft-ai') . '</p>';
     }
     
-    public function rate_limit_callback() {
-        $rate_limit = $this->settings->get_option('rate_limit', 10);
-        echo '<input type="number" name="contentcraft_ai_settings[rate_limit]" value="' . esc_attr($rate_limit) . '" min="1" max="100" />';
-        echo '<p class="description">' . __('Maximum number of API requests per hour (1-100).', 'contentcraft-ai') . '</p>';
-    }
-    
     public function enable_logging_callback() {
         $enable_logging = $this->settings->get_option('enable_logging', true);
         echo '<input type="checkbox" name="contentcraft_ai_settings[enable_logging]" value="1" ' . checked($enable_logging, true, false) . ' />';
         echo '<label>' . __('Enable error logging for debugging.', 'contentcraft-ai') . '</label>';
+    }
+
+    public function api_provider_callback() {
+        $provider = $this->settings->get_option('api_provider', 'gemini');
+        ?>
+        <select name="contentcraft_ai_settings[api_provider]" id="api_provider">
+            <option value="gemini" <?php selected($provider, 'gemini'); ?>><?php _e('Google Gemini', 'contentcraft-ai'); ?></option>
+            <option value="cloudflare" <?php selected($provider, 'cloudflare'); ?>><?php _e('Cloudflare AI', 'contentcraft-ai'); ?></option>
+        </select>
+        <?php
+    }
+
+    public function cloudflare_account_id_callback() {
+        $account_id = $this->settings->get_option('cloudflare_account_id', '');
+        echo '<input type="text" name="contentcraft_ai_settings[cloudflare_account_id]" value="' . esc_attr($account_id) . '" size="50" class="regular-text" />';
+    }
+
+    public function cloudflare_api_key_callback() {
+        $api_key = $this->settings->get_option('cloudflare_api_key', '');
+        echo '<input type="text" name="contentcraft_ai_settings[cloudflare_api_key]" value="' . esc_attr($api_key) . '" size="50" class="regular-text" />';
     }
 
     public function enabled_post_types_callback() {

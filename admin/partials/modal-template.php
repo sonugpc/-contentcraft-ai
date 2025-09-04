@@ -206,11 +206,23 @@ if (!defined('ABSPATH')) {
 
             <div id="chat-tab" class="contentcraft-tab-content">
                 <h3><?php _e('Chat with AI', 'contentcraft-ai'); ?></h3>
-                <div id="contentcraft-ai-chat-container">
-                    <div id="contentcraft-ai-chat-log"></div>
-                    <div id="contentcraft-ai-chat-input">
-                        <textarea id="contentcraft-ai-chat-message" placeholder="<?php esc_attr_e('Ask a question...', 'contentcraft-ai'); ?>"></textarea>
-                        <button id="contentcraft-ai-chat-send" class="button button-primary"><?php esc_html_e('Send', 'contentcraft-ai'); ?></button>
+                <div class="contentcraft-chat-wrapper">
+                    <div id="contentcraft-ai-saved-prompts-container">
+                        <h4><?php _e('Saved Prompts', 'contentcraft-ai'); ?></h4>
+                        <div id="contentcraft-ai-saved-prompts-list"></div>
+                    </div>
+                    <div id="contentcraft-ai-chat-container">
+                        <div id="contentcraft-ai-chat-log"></div>
+                        <div id="contentcraft-ai-chat-input-area">
+                            <textarea id="contentcraft-ai-chat-message" placeholder="<?php esc_attr_e('Ask a question...', 'contentcraft-ai'); ?>"></textarea>
+                            <div id="contentcraft-ai-chat-controls">
+                                <button id="contentcraft-ai-chat-send" class="button button-primary"><?php esc_html_e('Send', 'contentcraft-ai'); ?></button>
+                                <label>
+                                    <input type="checkbox" id="contentcraft-ai-save-prompt-checkbox" />
+                                    <?php _e('Add to saved prompts', 'contentcraft-ai'); ?>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

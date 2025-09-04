@@ -124,7 +124,6 @@ Keep all formatting and structure intact.',
 Tags: {tags}
 
 Create well-structured, engaging content.',
-                'max_tokens' => 2000,
                 'temperature' => 0.7,
                 'enable_logging' => true,
                 'cache_duration' => 3600,
@@ -258,17 +257,6 @@ Create well-structured, engaging content.',
         
         if (isset($settings['generation_prompt'])) {
             $validated['generation_prompt'] = sanitize_textarea_field($settings['generation_prompt']);
-        }
-        
-        // Validate numeric values
-        if (isset($settings['max_tokens'])) {
-            $validated['max_tokens'] = absint($settings['max_tokens']);
-            if ($validated['max_tokens'] < 100) {
-                $validated['max_tokens'] = 100;
-            }
-            if ($validated['max_tokens'] > 4000) {
-                $validated['max_tokens'] = 4000;
-            }
         }
         
         if (isset($settings['temperature'])) {

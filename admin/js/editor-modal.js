@@ -11,6 +11,7 @@
         currentContent: '',
         lastEnhancedContent: '',
         lastGeneratedContent: '',
+        chatHistory: [],
         
         init: function() {
             this.determineEditor();
@@ -98,6 +99,17 @@
             // Chat controls
             $(document).on('click', '#contentcraft-ai-chat-send', function() {
                 self.sendChatMessage();
+            });
+
+            // Saved prompts controls
+            $(document).on('click', '.prompt-item', function() {
+                $('#contentcraft-ai-chat-message').val($(this).text());
+            });
+
+            $(document).on('click', '.delete-prompt', function(e) {
+                e.stopPropagation();
+                var promptText = $(this).parent().text();
+                self.deleteSavedPrompt(promptText);
             });
         },
         
@@ -190,6 +202,10 @@
             // Load content for generation tab
             if (tab === 'generate') {
                 this.loadGenerationOptions();
+            }
+
+            if (tab === 'chat') {
+                this.loadSavedPrompts();
             }
         },
         
@@ -923,15 +939,23 @@
         },
 
         sendChatMessage: function() {
+            var self = this;
             var message = $('#contentcraft-ai-chat-message').val();
             if (message.trim() === '') {
                 return;
+            }
+
+            if ($('#contentcraft-ai-save-prompt-checkbox').is(':checked')) {
+                this.savePrompt(message);
+                $('#contentcraft-ai-save-prompt-checkbox').prop('checked', false);
             }
 
             var chatLog = $('#contentcraft-ai-chat-log');
             var userMessage = '<div class="chat-message user-message"><p>' + this.escapeHtml(message) + '</p></div>';
             chatLog.append(userMessage);
             $('#contentcraft-ai-chat-message').val('');
+
+            this.chatHistory.push({role: 'user', content: message});
 
             $.ajax({
                 url: contentcraft_ai_chat_ajax.ajax_url,
@@ -940,7 +964,8 @@
                     action: 'contentcraft_ai_chat',
                     nonce: contentcraft_ai_chat_ajax.nonce,
                     post_id: contentcraft_ai_chat_ajax.post_id,
-                    message: message
+                    message: message,
+                    history: JSON.stringify(self.chatHistory)
                 },
                 beforeSend: function() {
                     chatLog.append('<div class="chat-message bot-message loading"><p>...</p></div>');
@@ -948,10 +973,12 @@
                 success: function(response) {
                     chatLog.find('.loading').remove();
                     if (response.success) {
-                        var botMessage = '<div class="chat-message bot-message"><p>' + ContentCraftEditor.escapeHtml(response.data.text) + '</p></div>';
+                        var botMessageText = response.data.text;
+                        self.chatHistory.push({role: 'assistant', content: botMessageText});
+                        var botMessage = '<div class="chat-message bot-message"><p>' + self.escapeHtml(botMessageText) + '</p></div>';
                         chatLog.append(botMessage);
                     } else {
-                        var errorMessage = '<div class="chat-message bot-message error"><p>' + ContentCraftEditor.escapeHtml(response.data.message) + '</p></div>';
+                        var errorMessage = '<div class="chat-message bot-message error"><p>' + self.escapeHtml(response.data.message) + '</p></div>';
                         chatLog.append(errorMessage);
                     }
                     chatLog.scrollTop(chatLog[0].scrollHeight);
@@ -963,6 +990,38 @@
                     chatLog.scrollTop(chatLog[0].scrollHeight);
                 }
             });
+        },
+
+        getSavedPrompts: function() {
+            return JSON.parse(localStorage.getItem('contentcraft_ai_saved_prompts')) || [];
+        },
+
+        savePrompt: function(prompt) {
+            var prompts = this.getSavedPrompts();
+            if (prompts.indexOf(prompt) === -1) {
+                prompts.push(prompt);
+                localStorage.setItem('contentcraft_ai_saved_prompts', JSON.stringify(prompts));
+                this.loadSavedPrompts();
+            }
+        },
+
+        deleteSavedPrompt: function(prompt) {
+            var prompts = this.getSavedPrompts();
+            var index = prompts.indexOf(prompt);
+            if (index > -1) {
+                prompts.splice(index, 1);
+                localStorage.setItem('contentcraft_ai_saved_prompts', JSON.stringify(prompts));
+                this.loadSavedPrompts();
+            }
+        },
+
+        loadSavedPrompts: function() {
+            var prompts = this.getSavedPrompts();
+            var list = $('#contentcraft-ai-saved-prompts-list');
+            list.empty();
+            prompts.forEach(function(prompt) {
+                list.append('<div class="prompt-item">' + this.escapeHtml(prompt) + '<span class="delete-prompt"> 🗑️</span></div>');
+            }.bind(this));
         }
     };
     

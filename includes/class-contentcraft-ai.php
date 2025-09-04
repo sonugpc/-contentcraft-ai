@@ -78,7 +78,7 @@ class ContentCraft_AI {
      */
     private function includes() {
         require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-settings.php';
-        require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-api-handler.php';
+        require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-api-handler-factory.php';
         require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-content-processor.php';
         
         require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-chat.php';
@@ -105,7 +105,7 @@ class ContentCraft_AI {
         $this->settings = new ContentCraft_AI_Settings();
         
         // Initialize API handler
-        $this->api_handler = new ContentCraft_AI_API_Handler();
+        $this->api_handler = ContentCraft_AI_API_Handler_Factory::get_handler();
         
         // Initialize content processor
         $this->content_processor = new ContentCraft_AI_Content_Processor();
@@ -149,13 +149,6 @@ class ContentCraft_AI {
                 array('jquery'),
                 CONTENTCRAFT_AI_VERSION,
                 true
-            );
-            
-            wp_enqueue_style(
-                'contentcraft-ai-frontend',
-                CONTENTCRAFT_AI_PLUGIN_URL . 'assets/css/editor-styles.css',
-                array(),
-                CONTENTCRAFT_AI_VERSION
             );
         }
     }
