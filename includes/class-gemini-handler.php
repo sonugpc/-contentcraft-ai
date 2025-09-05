@@ -15,7 +15,7 @@ class ContentCraft_AI_Gemini_Handler implements ContentCraft_AI_API_Handler_Inte
     /**
      * Gemini API base URL
      */
-    private $api_base_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+    private $api_base_url = 'https://generativelanguage.googleapis.com/v1beta/models/';
     
     /**
      * Settings instance
@@ -148,9 +148,12 @@ class ContentCraft_AI_Gemini_Handler implements ContentCraft_AI_API_Handler_Inte
         if ($json_response) {
             $request_data['generationConfig']['response_mime_type'] = 'application/json';
         }
+
+        $model = $this->get_settings()->get_option('gemini_model', 'gemini-2.5-pro');
+        $url = $this->api_base_url . $model . ':generateContent';
         
         // Make HTTP request
-        $response = wp_remote_post($this->api_base_url . '?key=' . $api_key, array(
+        $response = wp_remote_post($url . '?key=' . $api_key, array(
             'headers' => array(
                 'Content-Type' => 'application/json',
             ),
@@ -170,7 +173,14 @@ class ContentCraft_AI_Gemini_Handler implements ContentCraft_AI_API_Handler_Inte
         
         if ($response_code !== 200) {
             $this->log_error('API returned error code: ' . $response_code . ', Body: ' . $response_body);
-            return new WP_Error('api_error', sprintf(__('API returned error code: %d', 'contentcraft-ai'), $response_code));
+            $error_message = sprintf(__('API returned error code: %d.', 'contentcraft-ai'), $response_code);
+            $decoded_body = json_decode($response_body, true);
+            if ($decoded_body && isset($decoded_body['error']['message'])) {
+                $error_message .= ' ' . $decoded_body['error']['message'];
+            } else {
+                $error_message .= ' ' . $response_body;
+            }
+            return new WP_Error('api_error', $error_message);
         }
         
         $data = json_decode($response_body, true);

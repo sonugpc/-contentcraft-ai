@@ -112,6 +112,7 @@ class ContentCraft_AI_Settings {
         if ($defaults === null) {
             $defaults = array(
                 'api_key' => '',
+                'gemini_model' => 'gemini-2.5-pro',
                 'enhancement_prompt' => 'Enhance this WordPress content while preserving its structure. Improve the text to be more engaging and clear.
 
 Title: {post_title}
@@ -248,6 +249,11 @@ Create well-structured, engaging content.',
         // Validate API key
         if (isset($settings['api_key'])) {
             $validated['api_key'] = sanitize_text_field($settings['api_key']);
+        }
+        
+        // Validate Gemini model
+        if (isset($settings['gemini_model'])) {
+            $validated['gemini_model'] = sanitize_text_field($settings['gemini_model']);
         }
         
         // Validate prompts

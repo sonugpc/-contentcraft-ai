@@ -43,16 +43,72 @@ class ContentCraft_AI_Cloudflare_Handler implements ContentCraft_AI_API_Handler_
      * Enhance existing content
      */
     public function enhance_content($title, $content, $tags = '', $prompt = '') {
-        // Not implemented for Cloudflare yet
-        return new WP_Error('not_implemented', __('This feature is not available for Cloudflare AI yet.', 'contentcraft-ai'));
+        $post_data = array(
+            'title' => $title,
+            'content' => $content,
+            'tags' => $tags,
+            'categories' => '',
+            'excerpt' => '',
+            'author' => wp_get_current_user()->display_name,
+            'date' => date('Y-m-d')
+        );
+        
+        if (empty($prompt)) {
+            $prompt = $this->get_settings()->get_prompt_template('enhancement');
+        }
+        $prompt = $this->get_settings()->process_variables($prompt, $post_data);
+        
+        $model = '@cf/meta/llama-2-7b-chat-int8';
+        $result = $this->make_api_request($prompt, $model);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        // The Cloudflare API returns a simple text response, so we need to wrap it in the expected structure.
+        return [
+            'enhanced_title' => $title,
+            'enhanced_content' => $result['text'],
+            'suggested_tags' => [],
+            'meta_description' => '',
+            'focus_keyword' => '',
+        ];
     }
     
     /**
      * Generate new content
      */
     public function generate_content($title, $tags = '', $length = 'medium', $prompt = '') {
-        // Not implemented for Cloudflare yet
-        return new WP_Error('not_implemented', __('This feature is not available for Cloudflare AI yet.', 'contentcraft-ai'));
+        $post_data = array(
+            'title' => $title,
+            'content' => '',
+            'tags' => $tags,
+            'length' => $length,
+            'categories' => '',
+            'excerpt' => '',
+            'author' => wp_get_current_user()->display_name,
+            'date' => date('Y-m-d')
+        );
+
+        if (empty($prompt)) {
+            $prompt = $this->get_settings()->get_prompt_template('generation');
+        }
+        $prompt = $this->get_settings()->process_variables($prompt, $post_data);
+
+        $model = '@cf/meta/llama-2-7b-chat-int8';
+        $result = $this->make_api_request($prompt, $model);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return [
+            'enhanced_title' => $title,
+            'enhanced_content' => $result['text'],
+            'suggested_tags' => [],
+            'meta_description' => '',
+            'focus_keyword' => '',
+        ];
     }
 
     /**

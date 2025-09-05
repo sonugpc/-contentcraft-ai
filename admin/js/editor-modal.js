@@ -744,26 +744,27 @@
         acceptEnhancedContent: function() {
             try {
                 var jsonText = $('#enhanced-json-response').val();
-                console.log('ContentCraft AI: JSON text from textarea:', jsonText);
                 if (!jsonText || jsonText.trim() === '') {
                     this.showError('No JSON response to parse.');
                     return;
                 }
                 
                 var jsonResponse = JSON.parse(jsonText);
-                console.log('ContentCraft AI: Parsed JSON response:', jsonResponse);
-                var content = jsonResponse.enhanced_content || '';
                 
-                if (!content || content.trim() === '') {
-                    this.showError('No enhanced content found in the JSON response.');
-                    console.log('ContentCraft AI: No enhanced_content in response.');
-                    return;
+                // Check if the response is an object and has the 'enhanced_content' property
+                if (typeof jsonResponse === 'object' && jsonResponse !== null && typeof jsonResponse.enhanced_content !== 'undefined') {
+                    var content = jsonResponse.enhanced_content;
+                    
+                    console.log('ContentCraft AI: Accepting enhanced content (length: ' + content.length + ')');
+                    this.setContent(content);
+                    this.updateEditorFields(jsonResponse);
+                    $('#enhanced-content-preview').hide();
+                } else {
+                    // Handle cases where the response is not the expected object
+                    // This prevents inserting the whole JSON object
+                    console.error('ContentCraft AI: Response is not in the expected format.', jsonResponse);
+                    this.showError('The AI response was not in the expected format. Could not insert content.');
                 }
-                
-                console.log('ContentCraft AI: Accepting enhanced content (length: ' + content.length + ')');
-                this.setContent(content);
-                this.updateEditorFields(jsonResponse);
-                $('#enhanced-content-preview').hide();
             } catch (e) {
                 console.error('ContentCraft AI: JSON parse error:', e);
                 this.showError('Invalid JSON in the response textarea. Please check the format: ' + e.message);
@@ -779,17 +780,18 @@
                 }
                 
                 var jsonResponse = JSON.parse(jsonText);
-                var content = jsonResponse.enhanced_content || '';
-                
-                if (!content || content.trim() === '') {
-                    this.showError('No generated content found in the JSON response.');
-                    return;
+
+                if (typeof jsonResponse === 'object' && jsonResponse !== null && typeof jsonResponse.enhanced_content !== 'undefined') {
+                    var content = jsonResponse.enhanced_content;
+
+                    console.log('ContentCraft AI: Accepting generated content (length: ' + content.length + ')');
+                    this.setContent(content);
+                    this.updateEditorFields(jsonResponse);
+                    $('#generated-content-preview').hide();
+                } else {
+                    console.error('ContentCraft AI: Response is not in the expected format.', jsonResponse);
+                    this.showError('The AI response was not in the expected format. Could not insert content.');
                 }
-                
-                console.log('ContentCraft AI: Accepting generated content (length: ' + content.length + ')');
-                this.setContent(content);
-                this.updateEditorFields(jsonResponse);
-                $('#generated-content-preview').hide();
             } catch (e) {
                 console.error('ContentCraft AI: JSON parse error:', e);
                 this.showError('Invalid JSON in the response textarea. Please check the format: ' + e.message);
@@ -1019,9 +1021,9 @@
             var prompts = this.getSavedPrompts();
             var list = $('#contentcraft-ai-saved-prompts-list');
             list.empty();
-            prompts.forEach(function(prompt) {
+            for (const prompt of prompts) {
                 list.append('<div class="prompt-item">' + this.escapeHtml(prompt) + '<span class="delete-prompt"> 🗑️</span></div>');
-            }.bind(this));
+            }
         }
     };
     

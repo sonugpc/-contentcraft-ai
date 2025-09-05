@@ -94,6 +94,14 @@ class ContentCraft_AI_Admin {
             'contentcraft_ai_gemini_api_section'
         );
 
+        add_settings_field(
+            'gemini_model',
+            __('Gemini Model', 'contentcraft-ai'),
+            array($this, 'gemini_model_callback'),
+            'contentcraft-ai-settings',
+            'contentcraft_ai_gemini_api_section'
+        );
+
         // Cloudflare API Settings Section
         add_settings_section(
             'contentcraft_ai_cloudflare_api_section',
@@ -246,6 +254,7 @@ class ContentCraft_AI_Admin {
         $validated['api_provider'] = isset($settings['api_provider']) ? sanitize_text_field($settings['api_provider']) : 'gemini';
         $validated['cloudflare_account_id'] = isset($settings['cloudflare_account_id']) ? sanitize_text_field($settings['cloudflare_account_id']) : '';
         $validated['cloudflare_api_key'] = isset($settings['cloudflare_api_key']) ? sanitize_text_field($settings['cloudflare_api_key']) : '';
+        $validated['gemini_model'] = isset($settings['gemini_model']) ? sanitize_text_field($settings['gemini_model']) : 'gemini-2.5-pro';
         
         return $validated;
     }
@@ -607,6 +616,12 @@ class ContentCraft_AI_Admin {
         } else {
             echo '<p class="description" style="color: orange;">⚠ ' . __('API key is required for the plugin to work', 'contentcraft-ai') . '</p>';
         }
+    }
+
+    public function gemini_model_callback() {
+        $model = $this->settings->get_option('gemini_model', 'gemini-2.5-pro');
+        echo '<input type="text" name="contentcraft_ai_settings[gemini_model]" value="' . esc_attr($model) . '" size="50" class="regular-text" />';
+        echo '<p class="description">' . __('Enter the Gemini model ID (e.g., gemini-2.5-pro, gemini-2.5-flash).', 'contentcraft-ai') . '</p>';
     }
     
     public function enhancement_prompt_callback() {
