@@ -97,9 +97,25 @@ if (!defined('ABSPATH')) {
                         </select>
                     </div>
                     <div class="contentcraft-field">
+                        <label for="add-internal-links">
+                            <input type="checkbox" id="add-internal-links" />
+                            <?php _e('Add internal post links', 'contentcraft-ai'); ?>
+                        </label>
+                        <p class="description"><?php _e('Automatically find and include relevant internal links in the generated content.', 'contentcraft-ai'); ?></p>
+                    </div>
+                    <div class="contentcraft-field internal-links-search-field" id="internal-links-search-container" style="display: none;">
+                        <label for="internal-links-search"><?php _e('Custom search keywords (optional):', 'contentcraft-ai'); ?></label>
+                        <input type="text" id="internal-links-search" class="contentcraft-input" placeholder="<?php _e('Enter specific keywords to search for similar posts...', 'contentcraft-ai'); ?>">
+                        <p class="description"><?php _e('Leave empty to auto-extract keywords from content details above.', 'contentcraft-ai'); ?></p>
+                        <div id="internal-links-preview" style="display: none;">
+                            <h4><?php _e('Found Similar Posts:', 'contentcraft-ai'); ?></h4>
+                            <div id="internal-links-preview-content"></div>
+                        </div>
+                    </div>
+                    <div class="contentcraft-field">
                         <label for="generation-prompt"><?php _e('Generation Prompt:', 'contentcraft-ai'); ?></label>
                         <textarea id="generation-prompt" class="contentcraft-textarea" rows="4"></textarea>
-                        <p class="description"><?php _e('Available variables: {post_title}, {tags}', 'contentcraft-ai'); ?></p>
+                        <p class="description"><?php _e('Available variables: {content_details}, {tags}, {internal_links}', 'contentcraft-ai'); ?></p>
                     </div>
                 </div>
                 

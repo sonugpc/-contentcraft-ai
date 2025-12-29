@@ -91,6 +91,24 @@
                 self.fetchInternalLinks();
             });
 
+            // Internal links checkbox toggle
+            $(document).on('change', '#add-internal-links', function() {
+                if ($(this).is(':checked')) {
+                    $('#internal-links-search-container').show();
+                    self.previewInternalLinks();
+                } else {
+                    $('#internal-links-search-container').hide();
+                    $('#internal-links-preview').hide();
+                }
+            });
+
+            // Preview internal links when search field changes
+            $(document).on('input', '#internal-links-search', function() {
+                if ($(this).val().trim() !== '') {
+                    self.previewInternalLinks();
+                }
+            });
+
             // Parse JSON controls
             $(document).on('click', '#parse-json-btn', function() {
                 self.parseAndInsertJson();
@@ -516,6 +534,7 @@
             var details = $('#generation-details').val();
             var tags = $('#generation-tags').val();
             var length = $('#generation-length').val();
+            var addInternalLinks = $('#add-internal-links').is(':checked');
 
             if (!details || details.trim() === '') {
                 this.showError('Content details are required for content generation');
@@ -527,6 +546,56 @@
             $('#generate-content-btn').prop('disabled', true);
             $('#generated-content-preview').hide();
 
+            // If internal links are requested, fetch them first
+            if (addInternalLinks) {
+                this.fetchInternalLinksForGeneration(details, tags, length);
+            } else {
+                // Generate content without internal links
+                this.performContentGeneration(details, tags, length, '');
+            }
+        },
+
+        fetchInternalLinksForGeneration: function(details, tags, length) {
+            var self = this;
+
+            // Use custom search keywords if provided, otherwise use content details
+            var customSearch = $('#internal-links-search').val();
+            var searchContent = customSearch.trim() || details;
+
+            $.ajax({
+                url: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.ajax_url : ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'contentcraft_find_similar_posts',
+                    nonce: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.nonce : '',
+                    content_details: searchContent,
+                    tags: tags,
+                    post_id: this.getPostId()
+                },
+                success: function(response) {
+                    var internalLinks = '';
+                    if (response.success && response.data.internal_links) {
+                        internalLinks = response.data.internal_links;
+                    }
+                    self.performContentGeneration(details, tags, length, internalLinks);
+                },
+                error: function() {
+                    console.log('ContentCraft AI: Failed to fetch internal links, proceeding without them');
+                    self.performContentGeneration(details, tags, length, '');
+                }
+            });
+        },
+
+        performContentGeneration: function(details, tags, length, internalLinks) {
+            var self = this;
+
+            // Prepare post data with internal links
+            var postData = {
+                content_details: details,
+                internal_links: internalLinks,
+                tags: tags
+            };
+
             $.ajax({
                 url: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.ajax_url : ajaxurl,
                 type: 'POST',
@@ -537,7 +606,8 @@
                     tags: tags,
                     length: length,
                     prompt: $('#generation-prompt').val(),
-                    post_id: this.getPostId()
+                    post_id: this.getPostId(),
+                    internal_links: internalLinks
                 },
                 success: function(response) {
                     try {
@@ -715,7 +785,8 @@
                 content += '<p><strong>Internal Links for AI (Text Format):</strong></p>';
                 content += '<textarea class="contentcraft-textarea" rows="8" style="width: 100%;" readonly>';
                 links.forEach(function(link, index) {
-                    content += (index + 1) + '. Title: ' + link.title + '\n   URL: ' + link.url + '\n\n';
+                    content += link.title + '\n';
+                    content += link.url + '\n\n';
                 });
                 content += '</textarea>';
                 content += '<p class="description">Copy this text format to include in your AI prompts for internal linking suggestions.</p>';
@@ -725,6 +796,75 @@
             }
             $('#internal-links-list').html(content);
             $('#internal-links-result').show();
+        },
+
+        previewInternalLinks: function() {
+            var self = this;
+            var details = $('#generation-details').val();
+            var customSearch = $('#internal-links-search').val();
+            var tags = $('#generation-tags').val();
+
+            // Use custom search if provided, otherwise use content details
+            var searchContent = customSearch.trim() || details;
+
+            if (!searchContent || searchContent.trim() === '') {
+                $('#internal-links-preview-content').html('<p class="description">Enter content details above to find similar posts.</p>');
+                $('#internal-links-preview').show();
+                return;
+            }
+
+            $('#internal-links-preview-content').html('<p>Finding similar posts...</p>');
+            $('#internal-links-preview').show();
+
+            $.ajax({
+                url: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.ajax_url : ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'contentcraft_find_similar_posts',
+                    nonce: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.nonce : '',
+                    content_details: searchContent,
+                    tags: tags,
+                    post_id: this.getPostId()
+                },
+                success: function(response) {
+                    if (response.success && response.data.internal_links) {
+                        var linksText = response.data.internal_links;
+                        if (linksText.trim() !== '') {
+                            // Extract just the link information without AI instructions
+                            var lines = linksText.split('\n');
+                            var cleanLinks = [];
+                            var inLinksSection = false;
+
+                            for (var i = 0; i < lines.length; i++) {
+                                var line = lines[i].trim();
+                                if (line.match(/^\d+\.\s*Title:/)) {
+                                    inLinksSection = true;
+                                    // Skip the title line, we only want URLs
+                                } else if (line.match(/^URL:/) && inLinksSection) {
+                                    // Remove "URL: " prefix and extract just the path part
+                                    var fullUrl = line.replace(/^URL:\s*/, '');
+                                    var url = new URL(fullUrl);
+                                    cleanLinks.push(url.pathname);
+                                } else if (line === '' && inLinksSection) {
+                                    cleanLinks.push('');
+                                } else if (line.startsWith('Consider linking')) {
+                                    break; // Stop at AI instruction
+                                }
+                            }
+
+                            var displayText = cleanLinks.join('\n');
+                            $('#internal-links-preview-content').html('<pre style="background: #f9f9f9; padding: 10px; border-radius: 4px; font-size: 12px; white-space: pre-wrap;">' + self.escapeHtml(displayText) + '</pre>');
+                        } else {
+                            $('#internal-links-preview-content').html('<p class="description">No similar posts found. Try different keywords or check if you have published posts.</p>');
+                        }
+                    } else {
+                        $('#internal-links-preview-content').html('<p class="description">No similar posts found. Try different keywords or check if you have published posts.</p>');
+                    }
+                },
+                error: function() {
+                    $('#internal-links-preview-content').html('<p class="description" style="color: #dc3232;">Error finding similar posts. Please try again.</p>');
+                }
+            });
         },
 
         getPostId: function() {

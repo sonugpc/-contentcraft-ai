@@ -36,6 +36,7 @@ class ContentCraft_AI_Admin {
         add_action('wp_ajax_contentcraft_general_query', array($this, 'ajax_general_query'));
         add_action('wp_ajax_contentcraft_fetch_internal_links', array($this, 'ajax_fetch_internal_links'));
         add_action('wp_ajax_contentcraft_get_default_prompts', array($this, 'ajax_get_default_prompts'));
+        add_action('wp_ajax_contentcraft_find_similar_posts', array($this, 'ajax_find_similar_posts'));
         add_action('admin_notices', array($this, 'admin_notices'));
     }
     
@@ -565,6 +566,262 @@ class ContentCraft_AI_Admin {
         );
 
         wp_send_json_success($prompts);
+    }
+
+    /**
+     * AJAX find similar posts for internal linking
+     */
+    public function ajax_find_similar_posts() {
+        check_ajax_referer('contentcraft_ai_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => __('Insufficient permissions.', 'contentcraft-ai')));
+        }
+
+        $content_details = isset($_POST['content_details']) ? sanitize_textarea_field($_POST['content_details']) : '';
+        $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+        if (empty($content_details)) {
+            wp_send_json_error(array('message' => __('Content details are required to find similar posts.', 'contentcraft-ai')));
+        }
+
+        $internal_links = $this->find_similar_posts($content_details, $tags, $post_id);
+
+        wp_send_json_success(array('internal_links' => $internal_links));
+    }
+
+    /**
+     * Find similar posts based on content analysis
+     */
+    private function find_similar_posts($content_details, $tags = '', $exclude_post_id = 0) {
+        // Extract keywords from content details
+        $keywords = $this->extract_keywords($content_details);
+
+        // Add user-provided tags to keywords
+        if (!empty($tags)) {
+            $tag_array = array_map('trim', explode(',', $tags));
+            $keywords = array_merge($keywords, $tag_array);
+        }
+
+        // Remove duplicates and empty values
+        $keywords = array_unique(array_filter($keywords));
+
+        // If no keywords found, try to extract some basic terms from the content
+        if (empty($keywords)) {
+            $content_lower = strtolower($content_details);
+            // Extract words that are 3+ characters and appear multiple times
+            preg_match_all('/\b[a-z]{3,}\b/', $content_lower, $matches);
+            if (!empty($matches[0])) {
+                $word_counts = array_count_values($matches[0]);
+                arsort($word_counts);
+                $keywords = array_slice(array_keys($word_counts), 0, 5);
+            }
+        }
+
+        if (empty($keywords)) {
+            return '';
+        }
+
+        $links = array();
+
+        // Method 1: Search by post title and content (most inclusive)
+        $search_query = implode(' ', array_slice($keywords, 0, 3));
+        if (!empty($search_query)) {
+            $args1 = array(
+                'post_type' => 'post',
+                'post_status' => 'publish',
+                'posts_per_page' => 8,
+                'post__not_in' => array($exclude_post_id),
+                's' => $search_query,
+                'sentence' => true // Better search matching
+            );
+
+            $query1 = new WP_Query($args1);
+            if ($query1->have_posts()) {
+                while ($query1->have_posts()) {
+                    $query1->the_post();
+                    $post_id = get_the_ID();
+                    $title = get_the_title();
+                    $url = get_permalink();
+
+                    // Calculate relevance score
+                    $score = $this->calculate_relevance_score($title, $content_details, $keywords);
+
+                    $links[$post_id] = array(
+                        'title' => $title,
+                        'url' => $url,
+                        'score' => $score
+                    );
+                }
+            }
+            wp_reset_postdata();
+        }
+
+        // Method 2: Search by Yoast focus keywords (if available)
+        if (count($links) < 5) {
+            $args2 = array(
+                'post_type' => 'post',
+                'post_status' => 'publish',
+                'posts_per_page' => 5,
+                'post__not_in' => array($exclude_post_id),
+                'meta_query' => array(
+                    'relation' => 'OR',
+                    array(
+                        'key' => '_yoast_wpseo_focuskw',
+                        'value' => $keywords,
+                        'compare' => 'IN'
+                    )
+                )
+            );
+
+            $query2 = new WP_Query($args2);
+            if ($query2->have_posts()) {
+                while ($query2->have_posts()) {
+                    $query2->the_post();
+                    $post_id = get_the_ID();
+                    $title = get_the_title();
+                    $url = get_permalink();
+
+                    // Calculate relevance score
+                    $score = $this->calculate_relevance_score($title, $content_details, $keywords);
+
+                    // Add bonus for Yoast focus keyword match
+                    $score += 5;
+
+                    $links[$post_id] = array(
+                        'title' => $title,
+                        'url' => $url,
+                        'score' => $score
+                    );
+                }
+            }
+            wp_reset_postdata();
+        }
+
+        // Method 3: Search by tags if we have user-provided tags
+        if (!empty($tags) && count($links) < 3) {
+            $tag_array = array_map('trim', explode(',', $tags));
+            $tag_slugs = array();
+
+            foreach ($tag_array as $tag_name) {
+                $tag = get_term_by('name', $tag_name, 'post_tag');
+                if ($tag) {
+                    $tag_slugs[] = $tag->slug;
+                }
+            }
+
+            if (!empty($tag_slugs)) {
+                $args3 = array(
+                    'post_type' => 'post',
+                    'post_status' => 'publish',
+                    'posts_per_page' => 3,
+                    'post__not_in' => array($exclude_post_id),
+                    'tag' => implode(',', $tag_slugs)
+                );
+
+                $query3 = new WP_Query($args3);
+                if ($query3->have_posts()) {
+                    while ($query3->have_posts()) {
+                        $query3->the_post();
+                        $post_id = get_the_ID();
+                        $title = get_the_title();
+                        $url = get_permalink();
+
+                        // Calculate relevance score
+                        $score = $this->calculate_relevance_score($title, $content_details, $keywords);
+
+                        $links[$post_id] = array(
+                            'title' => $title,
+                            'url' => $url,
+                            'score' => $score
+                        );
+                    }
+                }
+                wp_reset_postdata();
+            }
+        }
+
+        // Sort by relevance score and take top 3
+        if (!empty($links)) {
+            usort($links, function($a, $b) {
+                return $b['score'] <=> $a['score'];
+            });
+
+            $top_links = array_slice($links, 0, 3);
+
+            // Format for AI prompt - just the links without heading
+            $formatted_links = "";
+            foreach ($top_links as $index => $link) {
+                $formatted_links .= ($index + 1) . ". Title: \"" . $link['title'] . "\"\n";
+                $formatted_links .= "   URL: " . $link['url'] . "\n\n";
+            }
+            $formatted_links .= "Consider linking to these posts where relevant to improve internal linking and SEO.";
+
+            return $formatted_links;
+        }
+
+        return '';
+    }
+
+    /**
+     * Extract keywords from content
+     */
+    private function extract_keywords($content) {
+        // Convert to lowercase and remove punctuation
+        $content = strtolower($content);
+        $content = preg_replace('/[^\w\s]/', ' ', $content);
+
+        // Split into words
+        $words = explode(' ', $content);
+        $words = array_filter($words, function($word) {
+            return strlen($word) > 3; // Only words longer than 3 characters
+        });
+
+        // Count word frequency
+        $word_count = array_count_values($words);
+
+        // Remove common stop words
+        $stop_words = array('the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'has', 'let', 'put', 'say', 'she', 'too', 'use');
+        $word_count = array_diff_key($word_count, array_flip($stop_words));
+
+        // Sort by frequency and return top keywords
+        arsort($word_count);
+        return array_slice(array_keys($word_count), 0, 10);
+    }
+
+    /**
+     * Calculate relevance score for a post
+     */
+    private function calculate_relevance_score($post_title, $content_details, $keywords) {
+        $score = 0;
+
+        // Convert to lowercase for comparison
+        $post_title_lower = strtolower($post_title);
+        $content_lower = strtolower($content_details);
+
+        // Title matches (highest weight)
+        foreach ($keywords as $keyword) {
+            if (strpos($post_title_lower, strtolower($keyword)) !== false) {
+                $score += 10;
+            }
+        }
+
+        // Content matches (medium weight)
+        foreach ($keywords as $keyword) {
+            if (strpos($content_lower, strtolower($keyword)) !== false) {
+                $score += 5;
+            }
+        }
+
+        // Exact keyword matches in title get bonus
+        foreach ($keywords as $keyword) {
+            if (strtolower($post_title) === strtolower($keyword)) {
+                $score += 20;
+            }
+        }
+
+        return $score;
     }
     
     /**
