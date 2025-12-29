@@ -78,12 +78,13 @@ class ContentCraft_AI_Cloudflare_Handler implements ContentCraft_AI_API_Handler_
     /**
      * Generate new content
      */
-    public function generate_content($title, $tags = '', $length = 'medium', $prompt = '') {
+    public function generate_content($title, $tags = '', $length = 'medium', $prompt = '', $content_details = '') {
         $post_data = array(
             'title' => $title,
             'content' => '',
             'tags' => $tags,
             'length' => $length,
+            'content_details' => $content_details,
             'categories' => '',
             'excerpt' => '',
             'author' => wp_get_current_user()->display_name,

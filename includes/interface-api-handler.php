@@ -18,7 +18,7 @@ interface ContentCraft_AI_API_Handler_Interface {
     /**
      * Generate new content
      */
-    public function generate_content($title, $tags = '', $length = 'medium', $prompt = '');
+    public function generate_content($title, $tags = '', $length = 'medium', $prompt = '', $content_details = '');
 
     /**
      * Handle a general query

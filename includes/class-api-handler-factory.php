@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) {
 
 require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-gemini-handler.php';
 require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-cloudflare-handler.php';
+require_once CONTENTCRAFT_AI_PLUGIN_PATH . 'includes/class-openrouter-handler.php';
 
 class ContentCraft_AI_API_Handler_Factory {
     
@@ -23,6 +24,8 @@ class ContentCraft_AI_API_Handler_Factory {
         switch ($provider) {
             case 'cloudflare':
                 return new ContentCraft_AI_Cloudflare_Handler();
+            case 'openrouter':
+                return new ContentCraft_AI_OpenRouter_Handler();
             case 'gemini':
             default:
                 return new ContentCraft_AI_Gemini_Handler();

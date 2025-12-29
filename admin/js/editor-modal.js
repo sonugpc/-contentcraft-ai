@@ -316,21 +316,50 @@
         },
         
         setContent: function(content) {
+            var self = this;
+
+            // Re-determine editor type in case it changed
+            this.determineEditor();
+
             try {
                 if (this.currentEditor === 'classic') {
-                    if (typeof tinymce !== 'undefined' && tinymce.get('content')) {
+                    // Try TinyMCE first
+                    if (typeof tinymce !== 'undefined' && tinymce.get('content') && !tinymce.get('content').isHidden()) {
                         tinymce.get('content').setContent(content);
+                        // Also update the textarea
+                        $('#content').val(content).trigger('change');
                     } else if ($('#content').length) {
                         $('#content').val(content).trigger('change');
+
+                        // If TinyMCE becomes available later, update it too
+                        if (typeof tinymce !== 'undefined' && tinymce.get('content')) {
+                            setTimeout(function() {
+                                if (!tinymce.get('content').isHidden()) {
+                                    tinymce.get('content').setContent(content);
+                                }
+                            }, 100);
+                        }
                     } else {
                         throw new Error('Classic editor content area not found.');
                     }
                 } else if (this.currentEditor === 'gutenberg') {
                     if (typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
                         wp.data.dispatch('core/editor').editPost({ content: content });
+
+                        // Simple verification for Gutenberg
+                        setTimeout(function() {
+                            if (wp.data.select('core/editor')) {
+                                var currentContent = wp.data.select('core/editor').getEditedPostContent();
+                                if (!currentContent || currentContent.length === 0) {
+                                    wp.data.dispatch('core/editor').editPost({ content: content });
+                                }
+                            }
+                        }, 300);
                     } else {
                         throw new Error('Gutenberg editor not available.');
                     }
+                } else {
+                    throw new Error('Unknown editor type: ' + this.currentEditor);
                 }
             } catch (e) {
                 console.error('ContentCraft AI: Error setting content:', e);
@@ -484,27 +513,27 @@
         
         generateContent: function() {
             var self = this;
-            var title = $('#generation-title').val();
+            var details = $('#generation-details').val();
             var tags = $('#generation-tags').val();
             var length = $('#generation-length').val();
-            
-            if (!title || title.trim() === '') {
-                this.showError('Title is required for content generation');
+
+            if (!details || details.trim() === '') {
+                this.showError('Content details are required for content generation');
                 return;
             }
-            
+
             // Show loading
             $('#generate-loading').show();
             $('#generate-content-btn').prop('disabled', true);
             $('#generated-content-preview').hide();
-            
+
             $.ajax({
                 url: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.ajax_url : ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'contentcraft_generate_content',
                     nonce: (typeof contentcraft_ai_ajax !== 'undefined') ? contentcraft_ai_ajax.nonce : '',
-                    title: title,
+                    content_details: details,
                     tags: tags,
                     length: length,
                     prompt: $('#generation-prompt').val(),
@@ -778,7 +807,7 @@
                     this.showError('No JSON response to parse.');
                     return;
                 }
-                
+
                 var jsonResponse = JSON.parse(jsonText);
 
                 if (typeof jsonResponse === 'object' && jsonResponse !== null && typeof jsonResponse.enhanced_content !== 'undefined') {
@@ -787,7 +816,9 @@
                     console.log('ContentCraft AI: Accepting generated content (length: ' + content.length + ')');
                     this.setContent(content);
                     this.updateEditorFields(jsonResponse);
-                    $('#generated-content-preview').hide();
+
+                    // Keep the content visible for reference - don't hide anything
+                    this.showError('Content successfully inserted! The generated content is still visible above for reference.', 'success');
                 } else {
                     console.error('ContentCraft AI: Response is not in the expected format.', jsonResponse);
                     this.showError('The AI response was not in the expected format. Could not insert content.');

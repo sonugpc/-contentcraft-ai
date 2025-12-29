@@ -120,7 +120,7 @@ Content: {post_content}
 Tags: {tags}
 
 Keep all formatting and structure intact.',
-                'generation_prompt' => 'Generate high-quality WordPress content for: {post_title}
+                'generation_prompt' => 'Generate high-quality WordPress content based on these details: {content_details}
 
 Tags: {tags}
 
@@ -230,13 +230,14 @@ Create well-structured, engaging content.',
         $variables = array(
             '{post_title}' => isset($post_data['title']) ? $post_data['title'] : '',
             '{post_content}' => isset($post_data['content']) ? $post_data['content'] : '',
+            '{content_details}' => isset($post_data['content_details']) ? $post_data['content_details'] : '',
             '{tags}' => isset($post_data['tags']) ? $post_data['tags'] : '',
             '{categories}' => isset($post_data['categories']) ? $post_data['categories'] : '',
             '{excerpt}' => isset($post_data['excerpt']) ? $post_data['excerpt'] : '',
             '{author}' => isset($post_data['author']) ? $post_data['author'] : '',
             '{date}' => isset($post_data['date']) ? $post_data['date'] : date('Y-m-d')
         );
-        
+
         return str_replace(array_keys($variables), array_values($variables), $template);
     }
     

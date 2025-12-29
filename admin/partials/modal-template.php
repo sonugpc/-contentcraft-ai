@@ -80,8 +80,9 @@ if (!defined('ABSPATH')) {
                 <div class="contentcraft-generation-options">
                     <h3><?php _e('Content Generation Options', 'contentcraft-ai'); ?></h3>
                     <div class="contentcraft-field">
-                        <label for="generation-title"><?php _e('Title:', 'contentcraft-ai'); ?></label>
-                        <input type="text" id="generation-title" class="contentcraft-input" placeholder="<?php _e('Enter post title...', 'contentcraft-ai'); ?>">
+                        <label for="generation-details"><?php _e('Content Details:', 'contentcraft-ai'); ?></label>
+                        <textarea id="generation-details" class="contentcraft-textarea" rows="6" placeholder="<?php _e('Describe the content you want to generate. Include any specific details, topics, or requirements. The title can be included here as well...', 'contentcraft-ai'); ?>"></textarea>
+                        <p class="description"><?php _e('Provide detailed information about the content you want to generate. This can include the title, main topics, key points, and any specific requirements.', 'contentcraft-ai'); ?></p>
                     </div>
                     <div class="contentcraft-field">
                         <label for="generation-tags"><?php _e('Tags (optional):', 'contentcraft-ai'); ?></label>

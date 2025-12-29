@@ -125,6 +125,30 @@ class ContentCraft_AI_Admin {
             'contentcraft-ai-settings',
             'contentcraft_ai_cloudflare_api_section'
         );
+
+        // OpenRouter API Settings Section
+        add_settings_section(
+            'contentcraft_ai_openrouter_api_section',
+            __('OpenRouter AI Configuration', 'contentcraft-ai'),
+            array($this, 'openrouter_api_section_callback'),
+            'contentcraft-ai-settings'
+        );
+
+        add_settings_field(
+            'openrouter_api_key',
+            __('OpenRouter API Key', 'contentcraft-ai'),
+            array($this, 'openrouter_api_key_callback'),
+            'contentcraft-ai-settings',
+            'contentcraft_ai_openrouter_api_section'
+        );
+
+        add_settings_field(
+            'openrouter_model',
+            __('OpenRouter Model', 'contentcraft-ai'),
+            array($this, 'openrouter_model_callback'),
+            'contentcraft-ai-settings',
+            'contentcraft_ai_openrouter_api_section'
+        );
         
         // Prompt Templates Section
         add_settings_section(
@@ -255,6 +279,8 @@ class ContentCraft_AI_Admin {
         $validated['cloudflare_account_id'] = isset($settings['cloudflare_account_id']) ? sanitize_text_field($settings['cloudflare_account_id']) : '';
         $validated['cloudflare_api_key'] = isset($settings['cloudflare_api_key']) ? sanitize_text_field($settings['cloudflare_api_key']) : '';
         $validated['gemini_model'] = isset($settings['gemini_model']) ? sanitize_text_field($settings['gemini_model']) : 'gemini-2.5-pro';
+        $validated['openrouter_api_key'] = isset($settings['openrouter_api_key']) ? sanitize_text_field($settings['openrouter_api_key']) : '';
+        $validated['openrouter_model'] = isset($settings['openrouter_model']) ? sanitize_text_field($settings['openrouter_model']) : 'meta-llama/llama-3.2-3b-instruct:free';
         
         return $validated;
     }
@@ -421,14 +447,14 @@ class ContentCraft_AI_Admin {
             wp_send_json_error(array('message' => __('Insufficient permissions.', 'contentcraft-ai')));
         }
 
-        $title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
+        $content_details = isset($_POST['content_details']) ? sanitize_textarea_field($_POST['content_details']) : '';
         $tags = isset($_POST['tags']) ? sanitize_text_field($_POST['tags']) : '';
         $length = isset($_POST['length']) ? sanitize_text_field($_POST['length']) : 'medium';
         $prompt = isset($_POST['prompt']) ? sanitize_textarea_field($_POST['prompt']) : '';
         $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
 
         $api_handler = ContentCraft_AI_API_Handler_Factory::get_handler();
-        $result = $api_handler->generate_content($title, $tags, $length, $prompt);
+        $result = $api_handler->generate_content($content_details, $tags, $length, $prompt, $content_details);
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
@@ -566,6 +592,13 @@ class ContentCraft_AI_Admin {
                     echo __('Please configure your Cloudflare Account ID and API Key to start using ContentCraft AI.', 'contentcraft-ai');
                     echo '</p></div>';
                 }
+            } elseif ($provider === 'openrouter') {
+                $api_key = isset($settings['openrouter_api_key']) ? $settings['openrouter_api_key'] : '';
+                if (empty($api_key)) {
+                    echo '<div class="notice notice-warning"><p>';
+                    echo __('Please configure your OpenRouter API Key to start using ContentCraft AI.', 'contentcraft-ai');
+                    echo '</p></div>';
+                }
             }
         }
     }
@@ -585,7 +618,7 @@ class ContentCraft_AI_Admin {
     
     public function prompts_section_callback() {
         echo '<p>' . __('Customize the prompts used for content enhancement and generation.', 'contentcraft-ai') . '</p>';
-        echo '<p><strong>' . __('Available variables:', 'contentcraft-ai') . '</strong> {post_title}, {post_content}, {tags}, {categories}, {excerpt}, {author}, {date}</p>';
+        echo '<p><strong>' . __('Available variables:', 'contentcraft-ai') . '</strong> {post_title}, {post_content}, {content_details}, {tags}, {categories}, {excerpt}, {author}, {date}</p>';
     }
     
     public function api_settings_section_callback() {
@@ -654,6 +687,7 @@ class ContentCraft_AI_Admin {
         <select name="contentcraft_ai_settings[api_provider]" id="api_provider">
             <option value="gemini" <?php selected($provider, 'gemini'); ?>><?php _e('Google Gemini', 'contentcraft-ai'); ?></option>
             <option value="cloudflare" <?php selected($provider, 'cloudflare'); ?>><?php _e('Cloudflare AI', 'contentcraft-ai'); ?></option>
+            <option value="openrouter" <?php selected($provider, 'openrouter'); ?>><?php _e('OpenRouter', 'contentcraft-ai'); ?></option>
         </select>
         <?php
     }
@@ -666,6 +700,35 @@ class ContentCraft_AI_Admin {
     public function cloudflare_api_key_callback() {
         $api_key = $this->settings->get_option('cloudflare_api_key', '');
         echo '<input type="text" name="contentcraft_ai_settings[cloudflare_api_key]" value="' . esc_attr($api_key) . '" size="50" class="regular-text" />';
+    }
+
+    public function openrouter_api_section_callback() {
+        echo '<p>' . __('Configure your OpenRouter AI connection settings.', 'contentcraft-ai') . '</p>';
+    }
+
+    public function openrouter_api_key_callback() {
+        $api_key = $this->settings->get_option('openrouter_api_key', '');
+        echo '<input type="text" name="contentcraft_ai_settings[openrouter_api_key]" value="' . esc_attr($api_key) . '" size="50" class="regular-text" />';
+        echo '<p class="description">' . __('Get your API key from OpenRouter (https://openrouter.ai/keys)', 'contentcraft-ai') . '</p>';
+
+        if (!empty($api_key)) {
+            echo '<p class="description" style="color: green;">✓ ' . __('API key is configured', 'contentcraft-ai') . '</p>';
+        } else {
+            echo '<p class="description" style="color: orange;">⚠ ' . __('API key is required for OpenRouter to work', 'contentcraft-ai') . '</p>';
+        }
+    }
+
+    public function openrouter_model_callback() {
+        $model = $this->settings->get_option('openrouter_model', 'meta-llama/llama-3.2-3b-instruct:free');
+        $handler = new ContentCraft_AI_OpenRouter_Handler();
+        $free_models = $handler->get_free_models();
+
+        echo '<select name="contentcraft_ai_settings[openrouter_model]" class="regular-text">';
+        foreach ($free_models as $model_option) {
+            echo '<option value="' . esc_attr($model_option) . '" ' . selected($model, $model_option, false) . '>' . esc_html($model_option) . '</option>';
+        }
+        echo '</select>';
+        echo '<p class="description">' . __('Select a free OpenRouter model.', 'contentcraft-ai') . '</p>';
     }
 
     public function enabled_post_types_callback() {
